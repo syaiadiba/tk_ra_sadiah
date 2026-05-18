@@ -258,19 +258,8 @@ if __name__ == '__main__':
     init_database()
     
     print(f"\n🚀 Server: http://{host}:{port}")
-    print("=" * 60)
-    print("\n📝 AKUN DEFAULT:")
-    print("   👑 Admin  - username: admin  | password: admin123")
-    print("   👩‍🏫 Guru   - username: guru   | password: admin123")
-    print("   👧 Murid  - username: murid1 | password: admin123")
-    print("=" * 60)
-    print("\n✨ FITUR:")
-    print("   ✅ Multi-role (Admin, Guru, Murid)")
-    print("   ✅ Admin: CRUD siswa, guru, pembayaran SPP, sequential search")
-    print("   ✅ Guru: CRUD pembelajaran, lihat tanggapan siswa")
-    print("   ✅ Murid: lihat pembelajaran, beri tanggapan, lihat keuangan")
-    print("   ✅ Lupa password dengan token reset")
-    print("=" * 60)
+    
+   
     print("\n🚀 Starting server...\n")
     
     # Create app instance

@@ -8,7 +8,9 @@ Sistem Informasi Sekolah untuk TK RA SA'DIAH
 - **Admin**: Mengelola data siswa, pembayaran SPP (CRUD)
 - **Guru**: Membuat pembelajaran, melihat tanggapan siswa
 - **Murid**: Melihat pembelajaran, memberi tanggapan, melihat keuangan
-
+username: admin  | password: admin123
+username: guru   | password: admin123
+username: murid1 | password: admin123
 ### 2. Fitur Khusus
 - Sequential search untuk pencarian data siswa
 - Blur background dengan gambar sekolah
