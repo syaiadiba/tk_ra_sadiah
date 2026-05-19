@@ -1,69 +1,51 @@
 """
 Base Model with PostgreSQL Connection
-Menggunakan psycopg2 untuk koneksi database lokal
+Menggunakan Database URL Builder dari config
 """
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import os
 import logging
 from abc import ABC, abstractmethod
-from dotenv import load_dotenv
-
-# Load environment variables langsung (tanpa import config untuk menghindari circular)
-load_dotenv()
+from config import Config
 
 logger = logging.getLogger(__name__)
 
 
 class BaseModel(ABC):
-    """
-    Abstract base class for all models
-    Mengimplementasikan pewarisan (OOP Inheritance)
-    """
+    """Abstract base class for all models"""
     
     def __init__(self):
         self.primary_key = 'id'
-        # Ambil konfigurasi langsung dari environment
-        self.db_config = {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'port': os.getenv('DB_PORT', '5432'),
-            'user': os.getenv('DB_USER', 'postgres'),
-            'password': os.getenv('DB_PASSWORD', 'Mahdiyah6822'),
-            'database': os.getenv('DB_NAME', 'tk_ra_sadiah')
-        }
+        # Ambil konfigurasi dari Config
+        self.db_config = Config.get_db_config()
+        self.db_url = Config.build_database_url()  # ← Database URL Builder
     
     def get_connection(self):
-        """
-        Get PostgreSQL database connection
-        Time Complexity: O(1)
-        """
+        """Get PostgreSQL database connection"""
         try:
-            conn = psycopg2.connect(
-                host=self.db_config['host'],
-                database=self.db_config['database'],
-                user=self.db_config['user'],
-                password=self.db_config['password'],
-                port=self.db_config['port']
-            )
+            # Cara 1: Pakai dictionary config
+            conn = psycopg2.connect(**self.db_config)
             return conn
         except Exception as e:
             logger.error(f"Database connection error: {str(e)}")
             raise
     
+    def get_connection_from_url(self):
+        """Alternatif: Koneksi menggunakan URL (cara lain)"""
+        try:
+            conn = psycopg2.connect(self.db_url)
+            return conn
+        except Exception as e:
+            logger.error(f"Database connection error (URL): {str(e)}")
+            raise
+    
     @abstractmethod
     def get_table_name(self):
-        """
-        Abstract method to get table name
-        Harus diimplementasikan oleh child class
-        """
         pass
     
     def execute_query(self, query, params=None, fetch_one=False, fetch_all=False):
-        """
-        Execute database query with error handling
-        Time Complexity: O(n) where n is number of rows affected
-        """
+        """Execute database query"""
         conn = None
         cursor = None
         try:
@@ -81,15 +63,10 @@ class BaseModel(ABC):
             
             return result
             
-        except psycopg2.Error as e:
-            if conn:
-                conn.rollback()
-            logger.error(f"Database error: {str(e)}")
-            raise
         except Exception as e:
             if conn:
                 conn.rollback()
-            logger.error(f"Unexpected error: {str(e)}")
+            logger.error(f"Database error: {str(e)}")
             raise
         finally:
             if cursor:
@@ -98,7 +75,6 @@ class BaseModel(ABC):
                 conn.close()
     
     def get_all(self, limit=None, offset=None, order_by=None):
-        """Get all records with pagination"""
         try:
             query = f"SELECT * FROM {self.get_table_name()}"
             if order_by:
@@ -113,7 +89,6 @@ class BaseModel(ABC):
             raise
     
     def get_by_id(self, record_id):
-        """Get record by ID"""
         try:
             query = f"SELECT * FROM {self.get_table_name()} WHERE {self.primary_key} = %s"
             return self.execute_query(query, (record_id,), fetch_one=True)
@@ -122,7 +97,6 @@ class BaseModel(ABC):
             raise
     
     def insert(self, data):
-        """Insert new record"""
         try:
             columns = ', '.join(data.keys())
             placeholders = ', '.join(['%s'] * len(data))
@@ -134,7 +108,6 @@ class BaseModel(ABC):
             raise
     
     def update(self, record_id, data):
-        """Update record by ID"""
         try:
             set_clause = ', '.join([f"{key} = %s" for key in data.keys()])
             query = f"UPDATE {self.get_table_name()} SET {set_clause} WHERE {self.primary_key} = %s"
@@ -145,7 +118,6 @@ class BaseModel(ABC):
             raise
     
     def delete(self, record_id):
-        """Delete record by ID"""
         try:
             query = f"DELETE FROM {self.get_table_name()} WHERE {self.primary_key} = %s"
             return self.execute_query(query, (record_id,))
@@ -154,22 +126,17 @@ class BaseModel(ABC):
             raise
     
     def sequential_search(self, records, key, search_value):
-        """
-        Sequential search implementation
-        Time Complexity: O(n) where n is number of records
-        """
+        """Sequential search implementation - Time Complexity: O(n)"""
         try:
             results = []
             comparisons = 0
-            
             for record in records:
                 comparisons += 1
                 if (str(record.get(key, '')).lower() == str(search_value).lower() or
                     str(record.get('username', '')).lower().find(str(search_value).lower()) != -1 or
                     str(record.get('full_name', '')).lower().find(str(search_value).lower()) != -1):
                     results.append(record)
-            
-            logger.info(f"Sequential search completed: {comparisons} comparisons, {len(results)} results")
+            logger.info(f"Sequential search: {comparisons} comparisons, {len(results)} results")
             return results, comparisons
         except Exception as e:
             logger.error(f"Error in sequential_search: {str(e)}")
