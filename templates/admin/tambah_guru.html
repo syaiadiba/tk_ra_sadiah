@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Tambah Guru - TK RA SA'DIAH{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h4><i class="fas fa-chalkboard-user"></i> Tambah Guru Baru</h4>
+                <p class="mb-0">Akun akan otomatis dibuat dan guru bisa langsung login</p>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" class="form-control" required placeholder="Contoh: Budi Santoso">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-at"></i> Username <span class="text-danger">*</span></label>
+                        <input type="text" name="username" class="form-control" required placeholder="Contoh: budi.santoso">
+                        <small class="text-muted">Username akan digunakan untuk login</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
+                        <input type="email" name="email" class="form-control" placeholder="Contoh: budi@email.com">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-key"></i> Password <span class="text-danger">*</span></label>
+                        <input type="password" name="password" class="form-control" required placeholder="Minimal 4 karakter">
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('admin.kelola_guru') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Batal
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save"></i> Simpan & Buat Akun
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

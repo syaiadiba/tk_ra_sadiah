@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Guru - TK RA SA'DIAH{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h4><i class="fas fa-user-edit"></i> Edit Data Guru</h4>
+                <p class="mb-0">Edit informasi guru</p>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap</label>
+                        <input type="text" name="full_name" class="form-control" value="{{ guru.full_name }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-at"></i> Username</label>
+                        <input type="text" class="form-control" value="{{ guru.username }}" disabled>
+                        <small class="text-muted">Username tidak bisa diubah</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
+                        <input type="email" name="email" class="form-control" value="{{ guru.email|default('') }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-key"></i> Password Baru <span class="text-muted">(Opsional)</span></label>
+                        <input type="password" name="password" class="form-control" placeholder="Kosongkan jika tidak ingin mengganti password">
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('admin.kelola_guru') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Kembali
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save"></i> Simpan Perubahan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
