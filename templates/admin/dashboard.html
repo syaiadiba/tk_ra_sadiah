@@ -1,9 +1,110 @@
-{% extends "base.html" %}
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Dashboard - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-body">
-        <h2>Dashboard Admin</h2>
-        <p>Halaman ini sedang dalam pengembangan.</p>
+<div class="row mb-4">
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.kelola_siswa') }}" class="text-decoration-none">
+            <div class="stat-card text-center">
+                <i class="fas fa-users fa-3x text-success mb-2"></i>
+                <h2 class="text-success">{{ total_siswa|default(0) }}</h2>
+                <p class="text-muted mb-0">Total Siswa</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.kelola_guru') }}" class="text-decoration-none">
+            <div class="stat-card text-center">
+                <i class="fas fa-chalkboard-user fa-3x text-warning mb-2"></i>
+                <h2 class="text-warning">{{ total_guru|default(0) }}</h2>
+                <p class="text-muted mb-0">Total Guru</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.kelola_pembayaran') }}" class="text-decoration-none">
+            <div class="stat-card text-center">
+                <i class="fas fa-money-bill-wave fa-3x text-info mb-2"></i>
+                <h2 class="text-info">{{ total_pembayaran|default(0) }}</h2>
+                <p class="text-muted mb-0">Pembayaran Lunas</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.e_rapor') }}" class="text-decoration-none">
+            <div class="stat-card text-center">
+                <i class="fas fa-file-alt fa-3x text-danger mb-2"></i>
+                <h2 class="text-danger">{{ total_rapor|default(0) }}</h2>
+                <p class="text-muted mb-0">E-Rapor</p>
+            </div>
+        </a>
     </div>
 </div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="fas fa-history"></i> Aktivitas Terbaru
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr><th>Waktu</th><th>Aktivitas</th><th>Detail</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for a in aktivitas %}
+                            <tr>
+                                <td>{{ a.created_at.strftime('%d/%m/%Y %H:%M') if a.created_at else '-' }}</td>
+                                <td>
+                                    {% if a.tipe == 'siswa' %}
+                                        <i class="fas fa-user-plus text-success"></i> Tambah Siswa
+                                    {% elif a.tipe == 'pembayaran' %}
+                                        <i class="fas fa-money-bill-wave text-info"></i> Pembayaran
+                                    {% else %}
+                                        <i class="fas fa-edit text-warning"></i> Update
+                                    {% endif %}
+                                </td>
+                                <td>{{ a.nama }} {{ a.aksi }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center">Belum ada aktivitas</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="fas fa-calendar"></i> Statistik
+            </div>
+            <div class="card-body">
+                <canvas id="statChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('statChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Siswa', 'Guru', 'Lunas'],
+            datasets: [{
+                data: [{{ total_siswa|default(0) }}, {{ total_guru|default(0) }}, {{ total_pembayaran|default(0) }}],
+                backgroundColor: ['#2e7d32', '#ff9800', '#17a2b8'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: true }
+    });
+</script>
 {% endblock %}

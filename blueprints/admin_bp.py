@@ -1,9 +1,9 @@
 """
-Admin Blueprint for TK RA SA'DIAH
-Mengelola data siswa, guru, dan pembayaran
+Admin Blueprint for TK RA SA'DIAH - FULL VERSION
+Fitur: CRUD Siswa, Guru, Keuangan, Pengumuman, E-Rapor, Sorting (Merge/Insertion)
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_login import login_required, current_user
 import bcrypt
 import logging
@@ -27,7 +27,6 @@ def check_role():
 
 
 def get_db_connection():
-    """Mendapatkan koneksi database"""
     return psycopg2.connect(
         host=os.getenv('DB_HOST', 'localhost'),
         database=os.getenv('DB_NAME', 'tk_ra_sadiah'),
@@ -35,6 +34,79 @@ def get_db_connection():
         password=os.getenv('DB_PASSWORD', ''),
         port=os.getenv('DB_PORT', '5432')
     )
+
+
+# ============================================
+# ALGORITMA SORTING
+# ============================================
+
+def merge_sort(arr, key):
+    """Merge Sort - O(n log n)"""
+    if len(arr) <= 1:
+        return arr
+    
+    mid = len(arr) // 2
+    left = merge_sort(arr[:mid], key)
+    right = merge_sort(arr[mid:], key)
+    
+    return merge(left, right, key)
+
+
+def merge(left, right, key):
+    result = []
+    i = j = 0
+    
+    while i < len(left) and j < len(right):
+        if left[i].get(key, '').lower() <= right[j].get(key, '').lower():
+            result.append(left[i])
+            i += 1
+        else:
+            result.append(right[j])
+            j += 1
+    
+    result.extend(left[i:])
+    result.extend(right[j:])
+    return result
+
+
+def insertion_sort(arr, key):
+    """Insertion Sort - O(n²)"""
+    for i in range(1, len(arr)):
+        current = arr[i]
+        j = i - 1
+        while j >= 0 and current.get(key, '').lower() < arr[j].get(key, '').lower():
+            arr[j + 1] = arr[j]
+            j -= 1
+        arr[j + 1] = current
+    return arr
+
+
+def binary_search(data, key, value):
+    """Binary Search - O(log n) (data harus terurut)"""
+    left, right = 0, len(data) - 1
+    results = []
+    
+    while left <= right:
+        mid = (left + right) // 2
+        current_val = data[mid].get(key, '').lower()
+        search_val = value.lower()
+        
+        if search_val in current_val:
+            results.append(data[mid])
+            l, r = mid - 1, mid + 1
+            while l >= 0 and search_val in data[l].get(key, '').lower():
+                results.append(data[l])
+                l -= 1
+            while r < len(data) and search_val in data[r].get(key, '').lower():
+                results.append(data[r])
+                r += 1
+            break
+        elif search_val < current_val:
+            right = mid - 1
+        else:
+            left = mid + 1
+    
+    return results
 
 
 # ============================================
@@ -46,23 +118,41 @@ def dashboard():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
+        # Statistik
         cur.execute("SELECT COUNT(*) as total FROM users WHERE role = 'murid'")
         total_siswa = cur.fetchone()['total']
         
         cur.execute("SELECT COUNT(*) as total FROM users WHERE role = 'guru'")
         total_guru = cur.fetchone()['total']
         
-        cur.execute("SELECT COUNT(*) as total FROM pembelajaran")
-        total_pembelajaran = cur.fetchone()['total']
+        cur.execute("SELECT COUNT(*) as total FROM pembayaran WHERE status = 'lunas'")
+        total_pembayaran = cur.fetchone()['total']
+        
+        cur.execute("SELECT COUNT(*) as total FROM e_rapor")
+        total_rapor = cur.fetchone()['total']
+        
+        # Aktivitas terbaru
+        cur.execute("""
+            (SELECT 'siswa' as tipe, full_name as nama, created_at, 'ditambahkan' as aksi 
+             FROM users WHERE role = 'murid' ORDER BY created_at DESC LIMIT 5)
+            UNION ALL
+            (SELECT 'pembayaran' as tipe, u.full_name as nama, p.created_at, p.status as aksi 
+             FROM pembayaran p JOIN users u ON p.murid_id = u.id ORDER BY p.created_at DESC LIMIT 5)
+            ORDER BY created_at DESC LIMIT 10
+        """)
+        aktivitas = cur.fetchall()
         
         cur.close()
         conn.close()
         
         return render_template('admin/dashboard.html',
                              name=current_user.full_name,
+                             active_menu='dashboard',
                              total_siswa=total_siswa,
                              total_guru=total_guru,
-                             total_pembelajaran=total_pembelajaran,
+                             total_pembayaran=total_pembayaran,
+                             total_rapor=total_rapor,
+                             aktivitas=aktivitas,
                              now=datetime.now())
     except Exception as e:
         logger.error(f"Dashboard error: {str(e)}")
@@ -71,32 +161,40 @@ def dashboard():
 
 
 # ============================================
-# KELOLA SISWA (READ)
+# KELOLA SISWA (DENGAN SORTING)
 # ============================================
 @admin_bp.route('/siswa')
 def kelola_siswa():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        search = request.args.get('search', '')
-        
-        if search:
-            cur.execute("""
-                SELECT * FROM users 
-                WHERE role = 'murid' 
-                AND (username ILIKE %s OR full_name ILIKE %s OR email ILIKE %s)
-                ORDER BY id
-            """, (f'%{search}%', f'%{search}%', f'%{search}%'))
-        else:
-            cur.execute("SELECT * FROM users WHERE role = 'murid' ORDER BY id")
-        
+        cur.execute("SELECT * FROM users WHERE role = 'murid' ORDER BY id")
         siswa = cur.fetchall()
         cur.close()
         conn.close()
         
-        return render_template('admin/kelola_siswa.html', siswa=siswa, search_query=search)
+        search = request.args.get('search', '')
+        sort_by = request.args.get('sort_by', 'full_name')
+        sort_type = request.args.get('sort_type', 'merge')
+        search_query = request.args.get('search_query', '')
         
+        # Sorting dengan algoritma yang dipilih
+        if sort_type == 'merge':
+            siswa = merge_sort(siswa, sort_by)
+        elif sort_type == 'insertion':
+            siswa = insertion_sort(siswa, sort_by)
+        
+        # Binary Search
+        if search_query:
+            siswa = binary_search(siswa, 'full_name', search_query)
+            flash(f'🔍 Binary Search: Ditemukan {len(siswa)} data', 'info')
+        
+        return render_template('admin/kelola_siswa.html',
+                             active_menu='siswa',
+                             siswa=siswa,
+                             search_query=search_query,
+                             sort_by=sort_by,
+                             sort_type=sort_type)
     except Exception as e:
         logger.error(f"Kelola siswa error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
@@ -104,7 +202,7 @@ def kelola_siswa():
 
 
 # ============================================
-# TAMBAH SISWA (CREATE)
+# TAMBAH SISWA (LENGKAP DENGAN NIS, KELAS, DLL)
 # ============================================
 @admin_bp.route('/siswa/tambah', methods=['GET', 'POST'])
 def tambah_siswa():
@@ -113,16 +211,22 @@ def tambah_siswa():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         full_name = request.form.get('full_name')
+        nis = request.form.get('nis')
+        nisn = request.form.get('nisn')
+        kelas = request.form.get('kelas')
+        jenis_kelamin = request.form.get('jenis_kelamin')
+        tanggal_lahir = request.form.get('tanggal_lahir')
         email = request.form.get('email', '')
         phone = request.form.get('phone', '')
         address = request.form.get('address', '')
         
-        # Validasi
         errors = []
         if not username:
             errors.append('Username harus diisi')
         if not full_name:
             errors.append('Nama lengkap harus diisi')
+        if not nis:
+            errors.append('NIS harus diisi')
         if not password:
             errors.append('Password harus diisi')
         elif len(password) < 4:
@@ -139,32 +243,22 @@ def tambah_siswa():
             conn = get_db_connection()
             cur = conn.cursor()
             
-            # Cek username sudah ada
-            cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+            cur.execute("SELECT id FROM users WHERE username = %s OR nis = %s", (username, nis))
             if cur.fetchone():
-                flash(f'Username "{username}" sudah digunakan!', 'danger')
+                flash('Username atau NIS sudah digunakan!', 'danger')
                 cur.close()
                 conn.close()
                 return render_template('admin/tambah_siswa.html')
             
-            # Cek email sudah ada (jika diisi)
-            if email:
-                cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-                if cur.fetchone():
-                    flash(f'Email "{email}" sudah digunakan!', 'danger')
-                    cur.close()
-                    conn.close()
-                    return render_template('admin/tambah_siswa.html')
-            
-            # Hash password
             hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             
-            # Insert ke database
             cur.execute("""
-                INSERT INTO users (username, password_hash, role, full_name, email, phone, address, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO users (username, password_hash, role, full_name, nis, nisn, kelas, 
+                                   jenis_kelamin, tanggal_lahir, email, phone, address, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (username, hashed, 'murid', full_name, email, phone, address, datetime.now(), datetime.now()))
+            """, (username, hashed, 'murid', full_name, nis, nisn, kelas, 
+                  jenis_kelamin, tanggal_lahir, email, phone, address, datetime.now(), datetime.now()))
             
             conn.commit()
             new_id = cur.fetchone()[0]
@@ -172,7 +266,7 @@ def tambah_siswa():
             cur.close()
             conn.close()
             
-            flash(f'✅ Siswa "{full_name}" berhasil ditambahkan! Username: {username}, Password: {password}', 'success')
+            flash(f'✅ Siswa "{full_name}" (NIS: {nis}) berhasil ditambahkan!', 'success')
             return redirect(url_for('admin.kelola_siswa'))
             
         except Exception as e:
@@ -183,7 +277,7 @@ def tambah_siswa():
 
 
 # ============================================
-# EDIT SISWA (UPDATE)
+# EDIT SISWA
 # ============================================
 @admin_bp.route('/siswa/edit/<int:id>', methods=['GET', 'POST'])
 def edit_siswa(id):
@@ -193,6 +287,11 @@ def edit_siswa(id):
         
         if request.method == 'POST':
             full_name = request.form.get('full_name')
+            nis = request.form.get('nis')
+            nisn = request.form.get('nisn')
+            kelas = request.form.get('kelas')
+            jenis_kelamin = request.form.get('jenis_kelamin')
+            tanggal_lahir = request.form.get('tanggal_lahir')
             email = request.form.get('email')
             phone = request.form.get('phone')
             address = request.form.get('address')
@@ -201,17 +300,18 @@ def edit_siswa(id):
             if password:
                 hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 cur.execute("""
-                    UPDATE users 
-                    SET full_name = %s, email = %s, phone = %s, address = %s, 
-                        password_hash = %s, updated_at = %s
-                    WHERE id = %s
-                """, (full_name, email, phone, address, hashed, datetime.now(), id))
+                    UPDATE users SET full_name=%s, nis=%s, nisn=%s, kelas=%s, jenis_kelamin=%s, 
+                                   tanggal_lahir=%s, email=%s, phone=%s, address=%s, 
+                                   password_hash=%s, updated_at=%s WHERE id=%s
+                """, (full_name, nis, nisn, kelas, jenis_kelamin, tanggal_lahir, 
+                      email, phone, address, hashed, datetime.now(), id))
             else:
                 cur.execute("""
-                    UPDATE users 
-                    SET full_name = %s, email = %s, phone = %s, address = %s, updated_at = %s
-                    WHERE id = %s
-                """, (full_name, email, phone, address, datetime.now(), id))
+                    UPDATE users SET full_name=%s, nis=%s, nisn=%s, kelas=%s, jenis_kelamin=%s,
+                                   tanggal_lahir=%s, email=%s, phone=%s, address=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, nis, nisn, kelas, jenis_kelamin, tanggal_lahir,
+                      email, phone, address, datetime.now(), id))
             
             conn.commit()
             flash('✅ Data siswa berhasil diupdate!', 'success')
@@ -219,7 +319,6 @@ def edit_siswa(id):
             conn.close()
             return redirect(url_for('admin.kelola_siswa'))
         
-        # GET request
         cur.execute("SELECT * FROM users WHERE id = %s AND role = 'murid'", (id,))
         siswa = cur.fetchone()
         cur.close()
@@ -237,9 +336,6 @@ def edit_siswa(id):
         return redirect(url_for('admin.kelola_siswa'))
 
 
-# ============================================
-# HAPUS SISWA (DELETE)
-# ============================================
 @admin_bp.route('/siswa/hapus/<int:id>')
 def hapus_siswa(id):
     try:
@@ -249,17 +345,15 @@ def hapus_siswa(id):
         conn.commit()
         cur.close()
         conn.close()
-        
         flash('✅ Siswa berhasil dihapus!', 'success')
     except Exception as e:
         logger.error(f"Hapus siswa error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
-    
     return redirect(url_for('admin.kelola_siswa'))
 
 
 # ============================================
-# KELOLA GURU (CRUD)
+# KELOLA GURU (DENGAN NIP, MATA PELAJARAN)
 # ============================================
 @admin_bp.route('/guru')
 def kelola_guru():
@@ -270,8 +364,9 @@ def kelola_guru():
         guru = cur.fetchall()
         cur.close()
         conn.close()
-        
-        return render_template('admin/kelola_guru.html', guru=guru)
+        return render_template('admin/kelola_guru.html',
+                             active_menu='guru',
+                             guru=guru)
     except Exception as e:
         logger.error(f"Kelola guru error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
@@ -284,10 +379,15 @@ def tambah_guru():
         username = request.form.get('username')
         password = request.form.get('password')
         full_name = request.form.get('full_name')
+        nip = request.form.get('nip')
+        mata_pelajaran = request.form.get('mata_pelajaran')
+        jenis_kelamin = request.form.get('jenis_kelamin')
+        tanggal_lahir = request.form.get('tanggal_lahir')
         email = request.form.get('email', '')
+        phone = request.form.get('phone', '')
         
-        if not username or not full_name or not password:
-            flash('Semua field harus diisi!', 'danger')
+        if not username or not full_name or not nip or not password:
+            flash('Semua field wajib harus diisi!', 'danger')
             return render_template('admin/tambah_guru.html')
         
         if len(password) < 4:
@@ -298,26 +398,27 @@ def tambah_guru():
             conn = get_db_connection()
             cur = conn.cursor()
             
-            # Cek username
-            cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+            cur.execute("SELECT id FROM users WHERE username = %s OR nip = %s", (username, nip))
             if cur.fetchone():
-                flash(f'Username "{username}" sudah digunakan!', 'danger')
+                flash('Username atau NIP sudah digunakan!', 'danger')
                 cur.close()
                 conn.close()
                 return render_template('admin/tambah_guru.html')
             
             hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             cur.execute("""
-                INSERT INTO users (username, password_hash, role, full_name, email, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO users (username, password_hash, role, full_name, nip, mata_pelajaran,
+                                   jenis_kelamin, tanggal_lahir, email, phone, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (username, hashed, 'guru', full_name, email, datetime.now(), datetime.now()))
+            """, (username, hashed, 'guru', full_name, nip, mata_pelajaran,
+                  jenis_kelamin, tanggal_lahir, email, phone, datetime.now(), datetime.now()))
             conn.commit()
             
             cur.close()
             conn.close()
             
-            flash(f'✅ Guru "{full_name}" berhasil ditambahkan!', 'success')
+            flash(f'✅ Guru "{full_name}" (NIP: {nip}) berhasil ditambahkan!', 'success')
             return redirect(url_for('admin.kelola_guru'))
             
         except Exception as e:
@@ -335,20 +436,29 @@ def edit_guru(id):
         
         if request.method == 'POST':
             full_name = request.form.get('full_name')
+            nip = request.form.get('nip')
+            mata_pelajaran = request.form.get('mata_pelajaran')
+            jenis_kelamin = request.form.get('jenis_kelamin')
+            tanggal_lahir = request.form.get('tanggal_lahir')
             email = request.form.get('email')
+            phone = request.form.get('phone')
             password = request.form.get('password')
             
             if password:
                 hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 cur.execute("""
-                    UPDATE users SET full_name = %s, email = %s, password_hash = %s, updated_at = %s
-                    WHERE id = %s
-                """, (full_name, email, hashed, datetime.now(), id))
+                    UPDATE users SET full_name=%s, nip=%s, mata_pelajaran=%s, jenis_kelamin=%s,
+                                   tanggal_lahir=%s, email=%s, phone=%s, password_hash=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, nip, mata_pelajaran, jenis_kelamin, tanggal_lahir,
+                      email, phone, hashed, datetime.now(), id))
             else:
                 cur.execute("""
-                    UPDATE users SET full_name = %s, email = %s, updated_at = %s
-                    WHERE id = %s
-                """, (full_name, email, datetime.now(), id))
+                    UPDATE users SET full_name=%s, nip=%s, mata_pelajaran=%s, jenis_kelamin=%s,
+                                   tanggal_lahir=%s, email=%s, phone=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, nip, mata_pelajaran, jenis_kelamin, tanggal_lahir,
+                      email, phone, datetime.now(), id))
             
             conn.commit()
             flash('✅ Data guru berhasil diupdate!', 'success')
@@ -382,12 +492,10 @@ def hapus_guru(id):
         conn.commit()
         cur.close()
         conn.close()
-        
         flash('✅ Guru berhasil dihapus!', 'success')
     except Exception as e:
         logger.error(f"Hapus guru error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
-    
     return redirect(url_for('admin.kelola_guru'))
 
 
@@ -401,20 +509,23 @@ def kelola_pembayaran():
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         cur.execute("""
-            SELECT p.*, u.username as murid_name, u.full_name as murid_full_name
+            SELECT p.*, u.full_name as murid_name, u.nis, u.kelas
             FROM pembayaran p
             JOIN users u ON p.murid_id = u.id
             ORDER BY p.tahun DESC, p.bulan DESC
         """)
         pembayaran = cur.fetchall()
         
-        cur.execute("SELECT id, full_name, username FROM users WHERE role = 'murid' ORDER BY full_name")
+        cur.execute("SELECT id, full_name, nis, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
         siswa = cur.fetchall()
         
         cur.close()
         conn.close()
         
-        return render_template('admin/kelola_pembayaran.html', pembayaran=pembayaran, siswa=siswa)
+        return render_template('admin/kelola_pembayaran.html',
+                             active_menu='pembayaran',
+                             pembayaran=pembayaran,
+                             siswa=siswa)
     except Exception as e:
         logger.error(f"Kelola pembayaran error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
@@ -428,7 +539,7 @@ def tambah_pembayaran():
         bulan = request.form.get('bulan')
         tahun = request.form.get('tahun')
         nominal = request.form.get('nominal')
-        status = request.form.get('status', 'belum_bayar')
+        status = request.form.get('status')
         
         conn = get_db_connection()
         cur = conn.cursor()
@@ -444,7 +555,6 @@ def tambah_pembayaran():
     except Exception as e:
         logger.error(f"Tambah pembayaran error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
-    
     return redirect(url_for('admin.kelola_pembayaran'))
 
 
@@ -452,19 +562,17 @@ def tambah_pembayaran():
 def edit_pembayaran(id):
     try:
         status = request.form.get('status')
-        
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE pembayaran SET status = %s, updated_at = %s WHERE id = %s", (status, datetime.now(), id))
+        cur.execute("UPDATE pembayaran SET status = %s, updated_at = %s WHERE id = %s", 
+                   (status, datetime.now(), id))
         conn.commit()
         cur.close()
         conn.close()
-        
         flash('✅ Status pembayaran diupdate!', 'success')
     except Exception as e:
         logger.error(f"Edit pembayaran error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
-    
     return redirect(url_for('admin.kelola_pembayaran'))
 
 
@@ -477,10 +585,237 @@ def hapus_pembayaran(id):
         conn.commit()
         cur.close()
         conn.close()
-        
         flash('✅ Pembayaran dihapus!', 'success')
     except Exception as e:
         logger.error(f"Hapus pembayaran error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
-    
     return redirect(url_for('admin.kelola_pembayaran'))
+
+
+# ============================================
+# E-RAPOR (CRUD)
+# ============================================
+@admin_bp.route('/e-rapor')
+def e_rapor():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT e.*, u.full_name as siswa_name, u.nis, u.kelas
+            FROM e_rapor e
+            JOIN users u ON e.siswa_id = u.id
+            ORDER BY e.created_at DESC
+        """)
+        rapor = cur.fetchall()
+        
+        cur.execute("SELECT id, full_name, nis, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
+        siswa = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return render_template('admin/e_rapor.html',
+                             active_menu='e_rapor',
+                             rapor=rapor,
+                             siswa=siswa)
+    except Exception as e:
+        logger.error(f"E-Rapor error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+
+@admin_bp.route('/e-rapor/tambah', methods=['POST'])
+def tambah_e_rapor():
+    try:
+        siswa_id = request.form.get('siswa_id')
+        mapel = request.form.get('mapel')
+        nilai = request.form.get('nilai')
+        predikat = request.form.get('predikat')
+        catatan = request.form.get('catatan', '')
+        semester = request.form.get('semester')
+        tahun_ajaran = request.form.get('tahun_ajaran')
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO e_rapor (siswa_id, mapel, nilai, predikat, catatan, semester, tahun_ajaran, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (siswa_id, mapel, nilai, predikat, catatan, semester, tahun_ajaran, datetime.now(), datetime.now()))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        flash('✅ Nilai rapor berhasil ditambahkan!', 'success')
+    except Exception as e:
+        logger.error(f"Tambah e-rapor error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.e_rapor'))
+
+
+@admin_bp.route('/e-rapor/hapus/<int:id>')
+def hapus_e_rapor(id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM e_rapor WHERE id = %s", (id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash('✅ Nilai rapor dihapus!', 'success')
+    except Exception as e:
+        logger.error(f"Hapus e-rapor error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.e_rapor'))
+
+
+# ============================================
+# PENGUMUMAN (CRUD)
+# ============================================
+@admin_bp.route('/pengumuman')
+def kelola_pengumuman():
+    try:
+        from models.pengumuman_model import Pengumuman
+        pengumuman_model = Pengumuman()
+        pengumuman = pengumuman_model.get_all_with_admin()
+        return render_template('admin/pengumuman.html',
+                             active_menu='pengaturan',
+                             pengumuman=pengumuman)
+    except Exception as e:
+        logger.error(f"Kelola pengumuman error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+
+@admin_bp.route('/pengumuman/tambah', methods=['POST'])
+def tambah_pengumuman():
+    try:
+        from models.pengumuman_model import Pengumuman
+        judul = request.form.get('judul')
+        isi = request.form.get('isi')
+        target_role = request.form.get('target_role', 'semua')
+        
+        data = {
+            'admin_id': current_user.id,
+            'judul': judul,
+            'isi': isi,
+            'target_role': target_role
+        }
+        pengumuman = Pengumuman()
+        pengumuman.insert(data)
+        flash('✅ Pengumuman berhasil ditambahkan!', 'success')
+    except Exception as e:
+        logger.error(f"Tambah pengumuman error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.kelola_pengumuman'))
+
+
+@admin_bp.route('/pengumuman/hapus/<int:id>')
+def hapus_pengumuman(id):
+    try:
+        from models.pengumuman_model import Pengumuman
+        pengumuman = Pengumuman()
+        pengumuman.delete(id)
+        flash('✅ Pengumuman dihapus!', 'success')
+    except Exception as e:
+        logger.error(f"Hapus pengumuman error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.kelola_pengumuman'))
+
+
+# ============================================
+# PENUGASAN (VIEW ONLY - Guru yang membuat)
+# ============================================
+@admin_bp.route('/penugasan')
+def kelola_penugasan():
+    try:
+        from models.penugasan_model import Penugasan
+        penugasan_model = Penugasan()
+        penugasan = penugasan_model.get_all_with_guru()
+        return render_template('admin/penugasan.html',
+                             active_menu='pengaturan',
+                             penugasan=penugasan)
+    except Exception as e:
+        logger.error(f"Kelola penugasan error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+
+# ============================================
+# PROFIL ADMIN
+# ============================================
+@admin_bp.route('/profil', methods=['GET', 'POST'])
+def profil():
+    if request.method == 'POST':
+        full_name = request.form.get('full_name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        password = request.form.get('password')
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            
+            if password:
+                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                cur.execute("""
+                    UPDATE users SET full_name=%s, email=%s, phone=%s, password_hash=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, email, phone, hashed, datetime.now(), current_user.id))
+            else:
+                cur.execute("""
+                    UPDATE users SET full_name=%s, email=%s, phone=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, email, phone, datetime.now(), current_user.id))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            flash('✅ Profil berhasil diupdate!', 'success')
+            return redirect(url_for('admin.profil'))
+            
+        except Exception as e:
+            logger.error(f"Update profil error: {str(e)}")
+            flash('Terjadi kesalahan', 'danger')
+    
+    return render_template('admin/profil.html',
+                         active_menu='profil',
+                         name=current_user.full_name, 
+                         email=current_user.email, 
+                         phone=current_user.phone)
+
+
+# ============================================
+# PENGATURAN SISTEM
+# ============================================
+@admin_bp.route('/pengaturan')
+def pengaturan():
+    """Halaman pengaturan sistem"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("SELECT COUNT(*) as total FROM users")
+        total_users = cur.fetchone()['total']
+        
+        cur.execute("SELECT COUNT(*) as total FROM pengumuman")
+        total_pengumuman = cur.fetchone()['total']
+        
+        cur.execute("SELECT COUNT(*) as total FROM penugasan")
+        total_penugasan = cur.fetchone()['total']
+        
+        cur.close()
+        conn.close()
+        
+        return render_template('admin/pengaturan.html', 
+                             name=current_user.full_name,
+                             active_menu='pengaturan',
+                             total_users=total_users,
+                             total_pengumuman=total_pengumuman,
+                             total_penugasan=total_penugasan,
+                             now=datetime.now())
+    except Exception as e:
+        logger.error(f"Pengaturan error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('admin.dashboard'))

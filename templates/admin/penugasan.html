@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Penugasan - TK RA SA'DIAH{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <h3><i class="fas fa-tasks"></i> Penugasan dari Guru</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5>Daftar Penugasan</h5>
+                </div>
+                <div class="card-body">
+                    {% for p in penugasan %}
+                    <div class="alert alert-light border">
+                        <h5>{{ p.judul }}</h5>
+                        <p>{{ p.deskripsi }}</p>
+                        <small>Guru: {{ p.guru_name }} | Deadline: {{ p.deadline|default('Tidak ada deadline') }}</small>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Belum ada penugasan</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

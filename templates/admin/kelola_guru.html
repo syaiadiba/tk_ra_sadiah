@@ -1,9 +1,32 @@
-{% extends "base.html" %}
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Kelola Guru - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Kelola Data Guru{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-body">
-        <h2>Kelola Data Guru</h2>
-        <p>Halaman ini sedang dalam pengembangan.</p>
+<div class="d-flex justify-content-between mb-3">
+    <h5><i class="fas fa-chalkboard-user"></i> Daftar Guru</h5>
+    <a href="{{ url_for('admin.tambah_guru') }}" class="btn btn-success btn-sm"><i class="fas fa-plus-circle"></i> Tambah Guru</a>
+</div>
+
+<div class="table-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light"><tr><th>ID</th><th>NIP</th><th>Nama</th><th>Mapel</th><th>JK</th><th>Aksi</th></tr></thead>
+                <tbody>
+                    {% for g in guru %}
+                    <tr>
+                        <td>{{ g.id }}</td><td>{{ g.nip|default('-') }}</td>
+                        <td>{{ g.full_name }}</td><td>{{ g.mata_pelajaran|default('-') }}</td>
+                        <td>{{ g.jenis_kelamin|default('-') }}</td>
+                        <td><a href="{{ url_for('admin.edit_guru', id=g.id) }}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                            <a href="{{ url_for('admin.hapus_guru', id=g.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin?')"><i class="fas fa-trash"></i></a></td>
+                    </tr>
+                    {% else %}<tr><td colspan="6" class="text-center">Belum ada data</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

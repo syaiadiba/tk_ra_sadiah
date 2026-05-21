@@ -1,0 +1,32 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Pengaturan - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Pengaturan Sistem{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="table-card mb-4">
+            <div class="card-header"><i class="fas fa-database"></i> Pengaturan Database</div>
+            <div class="card-body">
+                <p><strong>Database:</strong> PostgreSQL</p>
+                <p><strong>Host:</strong> localhost</p>
+                <p><strong>Database Name:</strong> tk_ra_sadiah</p>
+                <hr>
+                <a href="{{ url_for('admin.kelola_pengumuman') }}" class="btn btn-outline-primary">Kelola Pengumuman</a>
+                <a href="{{ url_for('admin.kelola_penugasan') }}" class="btn btn-outline-secondary">Lihat Penugasan</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="table-card mb-4">
+            <div class="card-header"><i class="fas fa-info-circle"></i> Informasi Aplikasi</div>
+            <div class="card-body">
+                <p><strong>Versi:</strong> 2.0.0</p>
+                <p><strong>Developer:</strong> TK RA SA'DIAH</p>
+                <p><strong>Tahun:</strong> 2024</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

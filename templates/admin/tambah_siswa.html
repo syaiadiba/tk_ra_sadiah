@@ -4,33 +4,103 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-md-8">
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white">
                 <h4><i class="fas fa-user-plus"></i> Tambah Siswa Baru</h4>
-                <p class="mb-0">Akun akan otomatis dibuat dan siswa bisa langsung login</p>
+                <p class="mb-0">Data akan langsung disimpan ke database PostgreSQL</p>
             </div>
             <div class="card-body">
                 <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap <span class="text-danger">*</span></label>
-                        <input type="text" name="full_name" class="form-control" required placeholder="Contoh: Aisyah Putri">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap <span class="text-danger">*</span></label>
+                                <input type="text" name="full_name" class="form-control" required placeholder="Contoh: Aisyah Putri">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-at"></i> Username <span class="text-danger">*</span></label>
+                                <input type="text" name="username" class="form-control" required placeholder="Contoh: aisyah.putri">
+                                <small class="text-muted">Username akan digunakan untuk login</small>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-at"></i> Username <span class="text-danger">*</span></label>
-                        <input type="text" name="username" class="form-control" required placeholder="Contoh: aisyah.putri">
-                        <small class="text-muted">Username akan digunakan untuk login</small>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-id-card"></i> NIS <span class="text-danger">*</span></label>
+                                <input type="text" name="nis" class="form-control" required placeholder="Nomor Induk Siswa">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-id-card"></i> NISN</label>
+                                <input type="text" name="nisn" class="form-control" placeholder="Nomor Induk Siswa Nasional">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-school"></i> Kelas</label>
+                                <select name="kelas" class="form-select">
+                                    <option value="">Pilih Kelas</option>
+                                    <option value="TK A">TK A</option>
+                                    <option value="TK B">TK B</option>
+                                    <option value="TK C">TK C</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
-                        <input type="email" name="email" class="form-control" placeholder="Contoh: aisyah@email.com">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-venus-mars"></i> Jenis Kelamin</label>
+                                <select name="jenis_kelamin" class="form-select">
+                                    <option value="">Pilih</option>
+                                    <option value="Laki-laki">Laki-laki</option>
+                                    <option value="Perempuan">Perempuan</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-calendar"></i> Tanggal Lahir</label>
+                                <input type="date" name="tanggal_lahir" class="form-control">
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-phone"></i> Nomor Telepon</label>
-                        <input type="text" name="phone" class="form-control" placeholder="Contoh: 08123456789">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-key"></i> Password <span class="text-danger">*</span></label>
+                                <input type="password" name="password" class="form-control" required placeholder="Minimal 4 karakter">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-check-circle"></i> Konfirmasi Password</label>
+                                <input type="password" name="confirm_password" class="form-control" placeholder="Ketik ulang password">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
+                                <input type="email" name="email" class="form-control" placeholder="Contoh: aisyah@email.com">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-phone"></i> Telepon</label>
+                                <input type="text" name="phone" class="form-control" placeholder="Contoh: 08123456789">
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -38,39 +108,16 @@
                         <textarea name="address" class="form-control" rows="2" placeholder="Alamat lengkap siswa"></textarea>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-key"></i> Password <span class="text-danger">*</span></label>
-                        <input type="password" name="password" class="form-control" required placeholder="Minimal 4 karakter">
-                        <small class="text-muted">Password default: isikan password, atau biarkan kosong untuk password otomatis 'siswa123'</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-check-circle"></i> Konfirmasi Password</label>
-                        <input type="password" name="confirm_password" class="form-control" placeholder="Ketik ulang password">
-                    </div>
-                    
                     <hr>
-                    
                     <div class="d-flex justify-content-between">
                         <a href="{{ url_for('admin.kelola_siswa') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Batal
                         </a>
                         <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Simpan & Buat Akun
+                            <i class="fas fa-save"></i> Simpan ke Database
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-        
-        <div class="card mt-3">
-            <div class="card-body bg-light">
-                <h6><i class="fas fa-info-circle"></i> Informasi</h6>
-                <small>
-                    - Setelah ditambahkan, siswa akan memiliki akun login dengan username dan password yang diberikan.<br>
-                    - Siswa bisa mengakses dashboard murid setelah login.<br>
-                    - Data siswa dapat diedit atau dihapus nanti.
-                </small>
             </div>
         </div>
     </div>

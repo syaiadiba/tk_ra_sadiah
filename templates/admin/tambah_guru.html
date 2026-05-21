@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-md-8">
         <div class="card shadow-sm">
             <div class="card-header bg-warning text-dark">
                 <h4><i class="fas fa-chalkboard-user"></i> Tambah Guru Baru</h4>
@@ -12,29 +12,76 @@
             </div>
             <div class="card-body">
                 <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap <span class="text-danger">*</span></label>
-                        <input type="text" name="full_name" class="form-control" required placeholder="Contoh: Budi Santoso">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap <span class="text-danger">*</span></label>
+                                <input type="text" name="full_name" class="form-control" required placeholder="Contoh: Budi Santoso">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-at"></i> Username <span class="text-danger">*</span></label>
+                                <input type="text" name="username" class="form-control" required placeholder="Contoh: budi.santoso">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-id-card"></i> NIP <span class="text-danger">*</span></label>
+                                <input type="text" name="nip" class="form-control" required placeholder="Nomor Induk Pegawai">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-book"></i> Mata Pelajaran</label>
+                                <input type="text" name="mata_pelajaran" class="form-control" placeholder="Contoh: Matematika">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-venus-mars"></i> Jenis Kelamin</label>
+                                <select name="jenis_kelamin" class="form-select">
+                                    <option value="">Pilih</option>
+                                    <option value="Laki-laki">Laki-laki</option>
+                                    <option value="Perempuan">Perempuan</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-calendar"></i> Tanggal Lahir</label>
+                                <input type="date" name="tanggal_lahir" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-key"></i> Password <span class="text-danger">*</span></label>
+                                <input type="password" name="password" class="form-control" required placeholder="Minimal 4 karakter">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
+                                <input type="email" name="email" class="form-control" placeholder="budi@email.com">
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-at"></i> Username <span class="text-danger">*</span></label>
-                        <input type="text" name="username" class="form-control" required placeholder="Contoh: budi.santoso">
-                        <small class="text-muted">Username akan digunakan untuk login</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
-                        <input type="email" name="email" class="form-control" placeholder="Contoh: budi@email.com">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-key"></i> Password <span class="text-danger">*</span></label>
-                        <input type="password" name="password" class="form-control" required placeholder="Minimal 4 karakter">
+                        <label class="form-label"><i class="fas fa-phone"></i> Telepon</label>
+                        <input type="text" name="phone" class="form-control" placeholder="08123456789">
                     </div>
                     
                     <hr>
-                    
                     <div class="d-flex justify-content-between">
                         <a href="{{ url_for('admin.kelola_guru') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Batal
