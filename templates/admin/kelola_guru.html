@@ -4,26 +4,114 @@
 {% block page_title %}Kelola Data Guru{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
-    <h5><i class="fas fa-chalkboard-user"></i> Daftar Guru</h5>
-    <a href="{{ url_for('admin.tambah_guru') }}" class="btn btn-success btn-sm"><i class="fas fa-plus-circle"></i> Tambah Guru</a>
+<!-- Card Pencarian & Sorting -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between mb-3">
+            <h5><i class="fas fa-search"></i> Pencarian & Sorting Data Guru</h5>
+            <a href="{{ url_for('admin.tambah_guru') }}" class="btn btn-success btn-sm">
+                <i class="fas fa-plus-circle"></i> Tambah Guru
+            </a>
+        </div>
+        
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" name="search_query" class="form-control" 
+                           placeholder="Cari nama atau NIP..." value="{{ search_query }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select name="sort_by" class="form-select">
+                    <option value="full_name" {% if sort_by == 'full_name' %}selected{% endif %}>Nama Lengkap</option>
+                    <option value="nip" {% if sort_by == 'nip' %}selected{% endif %}>NIP</option>
+                    <option value="mata_pelajaran" {% if sort_by == 'mata_pelajaran' %}selected{% endif %}>Mata Pelajaran</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="sort_type" class="form-select">
+                    <option value="merge" {% if sort_type == 'merge' %}selected{% endif %}>Merge Sort (O(n log n))</option>
+                    <option value="shell" {% if sort_type == 'shell' %}selected{% endif %}>Shell Sort (O(n log n))</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-sort-amount-down"></i> Sorting
+                </button>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('admin.kelola_guru') }}" class="btn btn-secondary w-100">
+                    <i class="fas fa-sync"></i> Reset
+                </a>
+            </div>
+        </form>
+        
+        <!-- Informasi Sorting & Pencarian -->
+        {% if search_query %}
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-search"></i> 
+            <strong>Binary Search (O(log n)):</strong> Menampilkan hasil pencarian untuk "<strong>{{ search_query }}</strong>"<br>
+            <small class="text-muted">* Binary Search memerlukan data terurut (Merge Sort otomatis diterapkan)</small>
+        </div>
+        {% elif sort_type %}
+        <div class="alert alert-success mt-3">
+            <i class="fas fa-chart-line"></i> 
+            <strong>Sorting:</strong> Data diurutkan dengan 
+            <strong>{{ 'Merge Sort' if sort_type == 'merge' else 'Shell Sort' }}</strong> 
+            berdasarkan <strong>{{ 'Nama' if sort_by == 'full_name' else 'NIP' if sort_by == 'nip' else 'Mata Pelajaran' }}</strong>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
+<!-- Tabel Data Guru -->
 <div class="table-card">
+    <div class="card-header">
+        <i class="fas fa-chalkboard-user"></i> Daftar Guru 
+        <span class="badge bg-light text-dark ms-2">Total: {{ total_guru }} guru</span>
+    </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
-                <thead class="table-light"><tr><th>ID</th><th>NIP</th><th>Nama</th><th>Mapel</th><th>JK</th><th>Aksi</th></tr></thead>
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>NIP</th>
+                        <th>Nama Lengkap</th>
+                        <th>Mata Pelajaran</th>
+                        <th>Jenis Kelamin</th>
+                        <th>Email</th>
+                        <th width="120">Aksi</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for g in guru %}
                     <tr>
-                        <td>{{ g.id }}</td><td>{{ g.nip|default('-') }}</td>
-                        <td>{{ g.full_name }}</td><td>{{ g.mata_pelajaran|default('-') }}</td>
+                        <td>{{ g.id }}</td>
+                        <td><strong>{{ g.nip|default('-') }}</strong></td>
+                        <td>{{ g.full_name }}</td>
+                        <td>{{ g.mata_pelajaran|default('-') }}</td>
                         <td>{{ g.jenis_kelamin|default('-') }}</td>
-                        <td><a href="{{ url_for('admin.edit_guru', id=g.id) }}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
-                            <a href="{{ url_for('admin.hapus_guru', id=g.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin?')"><i class="fas fa-trash"></i></a></td>
+                        <td>{{ g.email|default('-') }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.edit_guru', id=g.id) }}" class="btn btn-sm btn-warning" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="{{ url_for('admin.hapus_guru', id=g.id) }}" class="btn btn-sm btn-danger" title="Hapus" onclick="return confirm('Yakin ingin menghapus guru {{ g.full_name }}?')">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
                     </tr>
-                    {% else %}<tr><td colspan="6" class="text-center">Belum ada data</td></tr>{% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <i class="fas fa-database fa-2x mb-2 d-block text-muted"></i>
+                            Belum ada data guru. 
+                            <a href="{{ url_for('admin.tambah_guru') }}">Tambah guru baru</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>

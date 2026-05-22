@@ -1,6 +1,6 @@
 """
 Admin Blueprint for TK RA SA'DIAH - FULL VERSION
-Fitur: CRUD Siswa, Guru, Keuangan, Pengumuman, E-Rapor, Sorting (Merge/Insertion)
+Fitur: CRUD Siswa, Guru, Keuangan, Pengumuman, E-Rapor, Sorting (Merge/Shell/Insertion)
 """
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
@@ -69,6 +69,22 @@ def merge(left, right, key):
     return result
 
 
+def shell_sort(arr, key):
+    """Shell Sort - O(n log n) sampai O(n²)"""
+    n = len(arr)
+    gap = n // 2
+    while gap > 0:
+        for i in range(gap, n):
+            temp = arr[i]
+            j = i
+            while j >= gap and temp.get(key, '').lower() < arr[j - gap].get(key, '').lower():
+                arr[j] = arr[j - gap]
+                j -= gap
+            arr[j] = temp
+        gap //= 2
+    return arr
+
+
 def insertion_sort(arr, key):
     """Insertion Sort - O(n²)"""
     for i in range(1, len(arr)):
@@ -118,7 +134,6 @@ def dashboard():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Statistik
         cur.execute("SELECT COUNT(*) as total FROM users WHERE role = 'murid'")
         total_siswa = cur.fetchone()['total']
         
@@ -131,7 +146,6 @@ def dashboard():
         cur.execute("SELECT COUNT(*) as total FROM e_rapor")
         total_rapor = cur.fetchone()['total']
         
-        # Aktivitas terbaru
         cur.execute("""
             (SELECT 'siswa' as tipe, full_name as nama, created_at, 'ditambahkan' as aksi 
              FROM users WHERE role = 'murid' ORDER BY created_at DESC LIMIT 5)
@@ -178,19 +192,18 @@ def kelola_siswa():
         sort_type = request.args.get('sort_type', 'merge')
         search_query = request.args.get('search_query', '')
         
-        # Sorting dengan algoritma yang dipilih
         if sort_type == 'merge':
             siswa = merge_sort(siswa, sort_by)
         elif sort_type == 'insertion':
             siswa = insertion_sort(siswa, sort_by)
         
-        # Binary Search
         if search_query:
             siswa = binary_search(siswa, 'full_name', search_query)
             flash(f'🔍 Binary Search: Ditemukan {len(siswa)} data', 'info')
         
         return render_template('admin/kelola_siswa.html',
                              active_menu='siswa',
+                             name=current_user.full_name,
                              siswa=siswa,
                              search_query=search_query,
                              sort_by=sort_by,
@@ -202,7 +215,7 @@ def kelola_siswa():
 
 
 # ============================================
-# TAMBAH SISWA (LENGKAP DENGAN NIS, KELAS, DLL)
+# TAMBAH SISWA
 # ============================================
 @admin_bp.route('/siswa/tambah', methods=['GET', 'POST'])
 def tambah_siswa():
@@ -353,7 +366,7 @@ def hapus_siswa(id):
 
 
 # ============================================
-# KELOLA GURU (DENGAN NIP, MATA PELAJARAN)
+# KELOLA GURU (DENGAN BINARY SEARCH & SHELL/MERGE SORT)
 # ============================================
 @admin_bp.route('/guru')
 def kelola_guru():
@@ -364,9 +377,42 @@ def kelola_guru():
         guru = cur.fetchall()
         cur.close()
         conn.close()
+        
+        search_query = request.args.get('search_query', '')
+        sort_by = request.args.get('sort_by', 'full_name')
+        sort_type = request.args.get('sort_type', 'merge')
+        
+        # ============================================
+        # SORTING DATA
+        # ============================================
+        if sort_type == 'merge':
+            guru = merge_sort(guru, sort_by)
+            flash_msg = f'✅ Data diurutkan dengan Merge Sort (O(n log n)) berdasarkan {sort_by}'
+        elif sort_type == 'shell':
+            guru = shell_sort(guru, sort_by)
+            flash_msg = f'✅ Data diurutkan dengan Shell Sort (O(n log n)) berdasarkan {sort_by}'
+        else:
+            guru = merge_sort(guru, sort_by)
+            flash_msg = f'✅ Data diurutkan dengan Merge Sort (O(n log n)) berdasarkan {sort_by}'
+        
+        # ============================================
+        # BINARY SEARCH (HARUS DATA SUDAH TERURUT)
+        # ============================================
+        if search_query:
+            guru_sorted = merge_sort(guru, 'full_name')
+            guru = binary_search(guru_sorted, 'full_name', search_query)
+            flash(f'🔍 Binary Search: Ditemukan {len(guru)} data untuk "{search_query}"', 'info')
+        elif sort_type in ['merge', 'shell']:
+            flash(flash_msg, 'success')
+        
         return render_template('admin/kelola_guru.html',
                              active_menu='guru',
-                             guru=guru)
+                             name=current_user.full_name,
+                             guru=guru,
+                             search_query=search_query,
+                             sort_by=sort_by,
+                             sort_type=sort_type,
+                             total_guru=len(guru))
     except Exception as e:
         logger.error(f"Kelola guru error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
@@ -519,13 +565,20 @@ def kelola_pembayaran():
         cur.execute("SELECT id, full_name, nis, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
         siswa = cur.fetchall()
         
+        total_tagihan = sum(p['nominal'] for p in pembayaran)
+        total_terbayar = sum(p['nominal'] for p in pembayaran if p['status'] == 'lunas')
+        
         cur.close()
         conn.close()
         
         return render_template('admin/kelola_pembayaran.html',
                              active_menu='pembayaran',
+                             name=current_user.full_name,
                              pembayaran=pembayaran,
-                             siswa=siswa)
+                             siswa=siswa,
+                             total_tagihan=total_tagihan,
+                             total_terbayar=total_terbayar,
+                             total_belum_bayar=total_tagihan - total_terbayar)
     except Exception as e:
         logger.error(f"Kelola pembayaran error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
@@ -617,6 +670,7 @@ def e_rapor():
         
         return render_template('admin/e_rapor.html',
                              active_menu='e_rapor',
+                             name=current_user.full_name,
                              rapor=rapor,
                              siswa=siswa)
     except Exception as e:
@@ -680,6 +734,7 @@ def kelola_pengumuman():
         pengumuman = pengumuman_model.get_all_with_admin()
         return render_template('admin/pengumuman.html',
                              active_menu='pengaturan',
+                             name=current_user.full_name,
                              pengumuman=pengumuman)
     except Exception as e:
         logger.error(f"Kelola pengumuman error: {str(e)}")
@@ -734,6 +789,7 @@ def kelola_penugasan():
         penugasan = penugasan_model.get_all_with_guru()
         return render_template('admin/penugasan.html',
                              active_menu='pengaturan',
+                             name=current_user.full_name,
                              penugasan=penugasan)
     except Exception as e:
         logger.error(f"Kelola penugasan error: {str(e)}")
@@ -772,6 +828,11 @@ def profil():
             cur.close()
             conn.close()
             
+            # Update current_user object
+            current_user.full_name = full_name
+            current_user.email = email
+            current_user.phone = phone
+            
             flash('✅ Profil berhasil diupdate!', 'success')
             return redirect(url_for('admin.profil'))
             
@@ -779,11 +840,19 @@ def profil():
             logger.error(f"Update profil error: {str(e)}")
             flash('Terjadi kesalahan', 'danger')
     
+    # Ambil data terbaru dari database
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT full_name, email, phone FROM users WHERE id = %s", (current_user.id,))
+    user_data = cur.fetchone()
+    cur.close()
+    conn.close()
+    
     return render_template('admin/profil.html',
                          active_menu='profil',
-                         name=current_user.full_name, 
-                         email=current_user.email, 
-                         phone=current_user.phone)
+                         name=user_data['full_name'] if user_data else current_user.full_name,
+                         email=user_data['email'] if user_data else '',
+                         phone=user_data['phone'] if user_data else '')
 
 
 # ============================================
