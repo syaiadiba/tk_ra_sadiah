@@ -1,9 +1,65 @@
-{% extends "base.html" %}
+{% extends "murid/base_murid.html" %}
+
+{% block title %}Keuangan - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Informasi Keuangan{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-body">
-        <h2>Halaman Keuangan Murid</h2>
-        <p>Halaman ini sedang dalam pengembangan.</p>
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="stat-card text-center">
+            <h5>Total Tagihan</h5>
+            <h3 class="text-primary">Rp {{ "{:,.0f}".format(total_tagihan|default(0)) }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card text-center">
+            <h5>Total Dibayar</h5>
+            <h3 class="text-success">Rp {{ "{:,.0f}".format(total_dibayar|default(0)) }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card text-center">
+            <h5>Sisa Tagihan</h5>
+            <h3 class="text-danger">Rp {{ "{:,.0f}".format(sisa|default(0)) }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="table-card">
+    <div class="card-header bg-info text-white">
+        <i class="fas fa-table"></i> Riwayat Pembayaran
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Bulan</th>
+                        <th>Tahun</th>
+                        <th>Nominal</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pembayaran %}
+                    <tr>
+                        <td>{{ p.bulan }}</td>
+                        <td>{{ p.tahun }}</td>
+                        <td>Rp {{ "{:,.0f}".format(p.nominal) }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if p.status == 'lunas' else 'danger' }}">
+                                {{ p.status|upper }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">Belum ada data</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

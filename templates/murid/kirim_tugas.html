@@ -1,0 +1,40 @@
+{% extends "murid/base_murid.html" %}
+
+{% block title %}Kirim Tugas - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Kirim Tugas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5><i class="fas fa-paper-plane"></i> Kirim Tugas: {{ tugas.judul }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Deskripsi Tugas:</strong><br>
+                    {{ tugas.deskripsi|default('Tidak ada deskripsi') }}
+                </div>
+                <div class="alert alert-warning">
+                    <strong>Deadline:</strong> {{ tugas.deadline|default('Tidak ada deadline') }}
+                </div>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Jawaban / Lampiran</label>
+                        <textarea name="jawaban" class="form-control" rows="5" placeholder="Tulis jawaban Anda di sini..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lampiran File (Opsional)</label>
+                        <input type="file" name="lampiran" class="form-control">
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('murid.tugas') }}" class="btn btn-secondary">Batal</a>
+                        <button type="submit" class="btn btn-success">Kirim Tugas</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

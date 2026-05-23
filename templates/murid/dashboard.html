@@ -1,9 +1,248 @@
-{% extends "base.html" %}
+{% extends "murid/base_murid.html" %}
+
+{% block title %}Dashboard - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Dashboard Murid{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-body">
-        <h2>Halaman Dashboard Murid</h2>
-        <p>Halaman ini sedang dalam pengembangan.</p>
+<!-- Statistik Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="fas fa-chart-line fa-3x text-primary mb-2"></i>
+            <h3>{{ rata_rata_nilai|default(0) }}</h3>
+            <p class="text-muted mb-0">Rata-rata Nilai</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="fas fa-check-circle fa-3x text-success mb-2"></i>
+            <h3>{{ tugas_selesai|default(0) }}</h3>
+            <p class="text-muted mb-0">Tugas Selesai</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-2"></i>
+            <h3>{{ tugas_terlambat|default(0) }}</h3>
+            <p class="text-muted mb-0">Tugas Terlambat</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="fas fa-bell fa-3x text-info mb-2"></i>
+            <h3>{{ pengumuman_baru|default(0) }}</h3>
+            <p class="text-muted mb-0">Pengumuman Baru</p>
+        </div>
     </div>
 </div>
+
+<!-- Main Content: 2 columns -->
+<div class="row">
+    <!-- Left Column - Penugasan -->
+    <div class="col-lg-7">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="fas fa-tasks"></i> Lembar Penugasan
+                <a href="{{ url_for('murid.tugas') }}" class="btn btn-sm btn-light float-end">Lihat Semua</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Judul Tugas</th>
+                                <th>Mata Pelajaran</th>
+                                <th>Deadline</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tugas in daftar_tugas %}
+                            <tr>
+                                <td>{{ tugas.judul }}</td>
+                                <td>{{ tugas.mapel|default('-') }}</td>
+                                <td>{{ tugas.deadline|default('-') }}</td>
+                                <td>
+                                    {% if tugas.status == 'selesai' %}
+                                        <span class="badge bg-success">Selesai</span>
+                                    {% elif tugas.status == 'terlambat' %}
+                                        <span class="badge bg-danger">Terlambat</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Belum Dikerjakan</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tugas.status != 'selesai' %}
+                                    <a href="{{ url_for('murid.kirim_tugas', id=tugas.id) }}" class="btn btn-sm btn-primary">Kirim</a>
+                                    {% else %}
+                                    <span class="text-muted">Sudah</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center">Belum ada penugasan</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Nilai Terbaru -->
+        <div class="table-card mt-4">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-star"></i> Nilai Terbaru
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Mata Pelajaran</th>
+                                <th>Nilai</th>
+                                <th>Predikat</th>
+                                <th>Tanggal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for nilai in nilai_terbaru %}
+                            <tr>
+                                <td>{{ nilai.mapel }}</td>
+                                <td><strong>{{ nilai.nilai }}</strong></td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if nilai.nilai >= 85 else 'info' if nilai.nilai >= 75 else 'warning' }}">
+                                        {{ nilai.predikat|default('-') }}
+                                    </span>
+                                </td>
+                                <td>{{ nilai.tanggal|default('-') }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center">Belum ada nilai</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Jadwal Hari Ini -->
+        <div class="table-card mt-4">
+            <div class="card-header bg-secondary text-white">
+                <i class="fas fa-calendar-day"></i> Jadwal Hari Ini
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Jam</th>
+                                <th>Mata Pelajaran</th>
+                                <th>Guru</th>
+                                <th>Ruangan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for jadwal in jadwal_hari_ini %}
+                            <tr>
+                                <td>{{ jadwal.jam }}</td>
+                                <td>{{ jadwal.mapel }}</td>
+                                <td>{{ jadwal.guru }}</td>
+                                <td>{{ jadwal.ruangan|default('Ruang 1') }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center">Tidak ada jadwal hari ini</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column -->
+    <div class="col-lg-5">
+        <!-- Profile Widget -->
+        <div class="profile-card">
+            <div class="profile-avatar"><i class="fas fa-user-graduate fa-3x"></i></div>
+            <h5>{{ name }}</h5>
+            <p class="text-muted small">{{ email|default('email@example.com') }}</p>
+            <p><span class="badge bg-primary">Kelas {{ kelas|default('TK A') }}</span></p>
+            <div class="d-flex justify-content-center gap-2">
+                <a href="{{ url_for('murid.profil') }}" class="btn btn-sm btn-primary">Edit Profil</a>
+                <a href="{{ url_for('murid.keuangan') }}" class="btn btn-sm btn-info">Lihat Keuangan</a>
+            </div>
+        </div>
+        
+        <!-- Pengumuman Terbaru -->
+        <div class="table-card mt-4">
+            <div class="card-header bg-warning text-dark">
+                <i class="fas fa-bullhorn"></i> Pengumuman Terbaru
+                <a href="{{ url_for('murid.pengumuman') }}" class="btn btn-sm btn-dark float-end">Lihat Semua</a>
+            </div>
+            <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                {% for p in pengumuman_terbaru %}
+                <div class="alert alert-light border mb-2">
+                    <strong>{{ p.judul }}</strong><br>
+                    <small class="text-muted">{{ p.created_at.strftime('%d/%m/%Y') if p.created_at else '-' }}</small>
+                    <p class="small mt-1 mb-0">{{ p.isi[:100] }}{% if p.isi|length > 100 %}...{% endif %}</p>
+                </div>
+                {% else %}
+                <p class="text-muted">Tidak ada pengumuman baru</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Kalender Akademik -->
+        <div class="calendar-widget mt-4">
+            <div class="calendar-header">
+                <button class="btn btn-sm btn-outline-secondary" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+                <h6 id="monthYear" class="mb-0"></h6>
+                <button class="btn btn-sm btn-outline-secondary" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div id="calendarGrid" class="text-center"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function generateCalendar(year, month) {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDay = firstDay.getDay();
+    
+    let html = '<div class="row g-1">';
+    const weekdays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    weekdays.forEach(day => { html += '<div class="col"><small class="text-muted">' + day + '</small></div>'; });
+    html += '</div><div class="row g-1 mt-1">';
+    
+    for (let i = 0; i < startDay; i++) html += '<div class="col"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+        const isToday = (d === new Date().getDate() && year === new Date().getFullYear() && month === new Date().getMonth());
+        html += '<div class="col"><div class="calendar-day ' + (isToday ? 'today' : '') + '">' + d + '</div></div>';
+        if ((startDay + d) % 7 === 0 && d !== daysInMonth) html += '</div><div class="row g-1 mt-1">';
+    }
+    html += '</div>';
+    document.getElementById('calendarGrid').innerHTML = html;
+    document.getElementById('monthYear').innerText = new Date(year, month).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+}
+
+let currentDate = new Date();
+generateCalendar(currentDate.getFullYear(), currentDate.getMonth());
+document.getElementById('prevMonth').onclick = function() { 
+    currentDate.setMonth(currentDate.getMonth() - 1); 
+    generateCalendar(currentDate.getFullYear(), currentDate.getMonth()); 
+};
+document.getElementById('nextMonth').onclick = function() { 
+    currentDate.setMonth(currentDate.getMonth() + 1); 
+    generateCalendar(currentDate.getFullYear(), currentDate.getMonth()); 
+};
+</script>
 {% endblock %}

@@ -1,0 +1,60 @@
+{% extends "murid/base_murid.html" %}
+
+{% block title %}Penugasan - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Penugasan Saya{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5><i class="fas fa-tasks"></i> Daftar Tugas</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Judul Tugas</th>
+                        <th>Mata Pelajaran</th>
+                        <th>Deadline</th>
+                        <th>Status</th>
+                        <th>Nilai</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tugas in tugas_list %}
+                    <tr>
+                        <td>{{ tugas.id }}</td>
+                        <td>{{ tugas.judul }}</td>
+                        <td>{{ tugas.mapel|default('-') }}</td>
+                        <td>{{ tugas.deadline|default('-') }}</td>
+                        <td>
+                            {% if tugas.status == 'selesai' %}
+                                <span class="badge bg-success">Selesai</span>
+                            {% elif tugas.status == 'terlambat' %}
+                                <span class="badge bg-danger">Terlambat</span>
+                            {% else %}
+                                <span class="badge bg-warning">Belum</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ tugas.nilai|default('-') }}</td>
+                        <td>
+                            {% if tugas.status != 'selesai' %}
+                            <a href="{{ url_for('murid.kirim_tugas', id=tugas.id) }}" class="btn btn-sm btn-primary">Kirim</a>
+                            {% else %}
+                            <span class="text-muted"><i class="fas fa-check"></i> Selesai</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center">Belum ada tugas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

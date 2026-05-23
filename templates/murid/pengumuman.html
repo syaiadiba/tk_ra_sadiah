@@ -1,0 +1,25 @@
+{% extends "murid/base_murid.html" %}
+
+{% block title %}Pengumuman - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Pengumuman{% endblock %}
+
+{% block content %}
+<div class="row">
+    {% for p in pengumuman %}
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-warning text-dark">
+                <strong><i class="fas fa-bullhorn"></i> {{ p.judul }}</strong>
+                <small class="float-end">{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '-' }}</small>
+            </div>
+            <div class="card-body">
+                <p>{{ p.isi }}</p>
+                <small class="text-muted">Dibuat oleh: {{ p.admin_name|default('Admin') }}</small>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="alert alert-info">Belum ada pengumuman</div></div>
+    {% endfor %}
+</div>
+{% endblock %}
