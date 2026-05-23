@@ -1,0 +1,23 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Daftar Murid - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Daftar Murid{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header"><i class="fas fa-users"></i> Data Murid <a href="{{ url_for('guru.tambah_murid') }}" class="btn btn-sm btn-light float-end"><i class="fas fa-plus"></i> Tambah Murid</a></div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light"><td><th>ID</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>Email</th><th>Aksi</th></tr></thead>
+                <tbody>
+                    {% for m in murid_list %}
+                    <tr><td>{{ m.id }}</td><td>{{ m.nis|default('-') }}</td><td>{{ m.full_name }}</td><td>{{ m.kelas|default('-') }}</td><td>{{ m.email|default('-') }}</td>
+                    <td><a href="{{ url_for('guru.edit_murid', id=m.id) }}" class="btn btn-sm btn-warning">Edit</a> <a href="{{ url_for('guru.hapus_murid', id=m.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin?')">Hapus</a></td></tr>
+                    {% else %}<tr><td colspan="6" class="text-center">Belum ada data murid</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

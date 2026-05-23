@@ -1,0 +1,22 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Penilaian Tugas - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Penilaian Tugas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark"><h5><i class="fas fa-check-double"></i> Beri Nilai: {{ kiriman.siswa_name }}</h5></div>
+            <div class="card-body">
+                <div class="alert alert-info"><strong>Jawaban Siswa:</strong><br>{{ kiriman.jawaban|default('Tidak ada jawaban') }}</div>
+                <form method="POST">
+                    <div class="mb-3"><label>Nilai (0-100)</label><input type="number" name="nilai" class="form-control" min="0" max="100" required></div>
+                    <div class="mb-3"><label>Feedback / Catatan</label><textarea name="feedback" class="form-control" rows="3" placeholder="Berikan feedback untuk siswa..."></textarea></div>
+                    <hr><div class="d-flex justify-content-between"><a href="{{ url_for('guru.kirim_tugas', id=kiriman.tugas_id) }}" class="btn btn-secondary">Kembali</a><button type="submit" class="btn btn-success">Simpan Nilai</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

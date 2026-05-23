@@ -1,0 +1,56 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Edit Tugas - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Edit Tugas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h5><i class="fas fa-edit"></i> Edit Tugas</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Judul Tugas</label>
+                        <input type="text" name="judul" class="form-control" value="{{ tugas.judul }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mata Pelajaran</label>
+                        <input type="text" name="mapel" class="form-control" value="{{ tugas.mapel|default('') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Deskripsi Tugas</label>
+                        <textarea name="deskripsi" class="form-control" rows="5" required>{{ tugas.deskripsi|default('') }}</textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Deadline</label>
+                                <input type="date" name="deadline" class="form-control" value="{{ tugas.deadline|default('') }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Kelas Target</label>
+                                <select name="kelas" class="form-control">
+                                    <option value="TK A" {% if tugas.kelas == 'TK A' %}selected{% endif %}>TK A</option>
+                                    <option value="TK B" {% if tugas.kelas == 'TK B' %}selected{% endif %}>TK B</option>
+                                    <option value="TK C" {% if tugas.kelas == 'TK C' %}selected{% endif %}>TK C</option>
+                                    <option value="semua" {% if tugas.kelas == 'semua' %}selected{% endif %}>Semua Kelas</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('guru.tugas') }}" class="btn btn-secondary">Batal</a>
+                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Nilai & E-Rapor - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Nilai & E-Rapor{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white"><h5><i class="fas fa-plus-circle"></i> Tambah Nilai</h5></div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('guru.tambah_nilai') }}" class="row g-3">
+            <div class="col-md-3"><select name="siswa_id" class="form-control" required><option value="">Pilih Siswa</option>{% for s in murid_list %}<option value="{{ s.id }}">{{ s.full_name }}</option>{% endfor %}</select></div>
+            <div class="col-md-2"><input type="text" name="mapel" class="form-control" placeholder="Mata Pelajaran" required></div>
+            <div class="col-md-2"><input type="number" name="nilai" class="form-control" placeholder="Nilai" step="0.01" required></div>
+            <div class="col-md-2"><select name="predikat" class="form-control"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></div>
+            <div class="col-md-2"><select name="semester" class="form-control"><option value="1">Semester 1</option><option value="2">Semester 2</option></select></div>
+            <div class="col-md-1"><button type="submit" class="btn btn-primary w-100">Tambah</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-info text-white"><i class="fas fa-table"></i> Daftar Nilai</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light"><tr><th>Siswa</th><th>Mapel</th><th>Nilai</th><th>Predikat</th><th>Semester</th><th>Aksi</th></tr></thead>
+                <tbody>
+                    {% for n in nilai_list %}
+                    <tr><td>{{ n.siswa_name }}</td><td>{{ n.mapel }}</td><td><strong>{{ n.nilai }}</strong></td><td>{{ n.predikat|default('-') }}</td><td>{{ n.semester|default('-') }}</td>
+                    <td><a href="{{ url_for('guru.edit_nilai', id=n.id) }}" class="btn btn-sm btn-warning">Edit</a> <a href="{{ url_for('guru.hapus_nilai', id=n.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin?')">Hapus</a><\/td>
+                    </tr>
+                    {% else %}<tr><td colspan="6" class="text-center">Belum ada data nilai</td>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

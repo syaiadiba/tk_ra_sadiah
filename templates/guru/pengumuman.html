@@ -1,0 +1,34 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Pengumuman - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Kelola Pengumuman{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark"><h5><i class="fas fa-plus-circle"></i> Buat Pengumuman Baru</h5></div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('guru.tambah_pengumuman') }}" class="row g-3">
+            <div class="col-md-12"><input type="text" name="judul" class="form-control" placeholder="Judul Pengumuman" required></div>
+            <div class="col-md-12"><textarea name="isi" class="form-control" rows="3" placeholder="Isi Pengumuman" required></textarea></div>
+            <div class="col-md-4"><select name="target_role" class="form-select"><option value="semua">Semua User</option><option value="murid">Hanya Murid</option><option value="guru">Hanya Guru</option></select></div>
+            <div class="col-md-2"><button type="submit" class="btn btn-primary">Posting</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-secondary text-white"><i class="fas fa-table"></i> Daftar Pengumuman</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light"><tr><th>Judul</th><th>Isi</th><th>Target</th><th>Tanggal</th><th>Aksi</th></tr></thead>
+                <tbody>
+                    {% for p in pengumuman %}
+                    <tr><td>{{ p.judul }}</td><td>{{ p.isi[:50] }}...</td><td>{{ p.target_role }}</td><td>{{ p.created_at.strftime('%d/%m/%Y') if p.created_at else '-' }}</td><td><a href="{{ url_for('guru.hapus_pengumuman', id=p.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin?')">Hapus</a></td></tr>
+                    {% else %}<tr><td colspan="5" class="text-center">Belum ada pengumuman</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

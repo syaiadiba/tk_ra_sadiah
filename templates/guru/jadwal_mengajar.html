@@ -1,0 +1,23 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Jadwal Mengajar - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Jadwal Mengajar{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-info text-white"><i class="fas fa-calendar-alt"></i> Jadwal Mengajar <a href="{{ url_for('guru.tambah_jadwal') }}" class="btn btn-sm btn-light float-end"><i class="fas fa-plus"></i> Tambah Jadwal</a></div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light"><tr><th>Hari</th><th>Jam</th><th>Kelas</th><th>Mata Pelajaran</th><th>Ruangan</th><th>Aksi</th></tr></thead>
+                <tbody>
+                    {% for j in jadwal_list %}
+                    <tr><td>{{ j.hari }}</td><td>{{ j.jam_mulai }} - {{ j.jam_selesai }}</td><td>{{ j.kelas }}</td><td>{{ j.mapel }}</td><td>{{ j.ruangan|default('Ruang 1') }}</td>
+                    <td><a href="{{ url_for('guru.edit_jadwal', id=j.id) }}" class="btn btn-sm btn-warning">Edit</a> <a href="{{ url_for('guru.hapus_jadwal', id=j.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin?')">Hapus</a></td></tr>
+                    {% else %}<tr><td colspan="6" class="text-center">Belum ada jadwal</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Buat Tugas - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Buat Tugas Baru{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white"><h5><i class="fas fa-plus-circle"></i> Buat Tugas Baru</h5></div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3"><label>Judul Tugas</label><input type="text" name="judul" class="form-control" required></div>
+                    <div class="mb-3"><label>Mata Pelajaran</label><input type="text" name="mapel" class="form-control" required></div>
+                    <div class="mb-3"><label>Deskripsi Tugas</label><textarea name="deskripsi" class="form-control" rows="5" required></textarea></div>
+                    <div class="row"><div class="col-md-6"><div class="mb-3"><label>Deadline</label><input type="date" name="deadline" class="form-control"></div></div>
+                    <div class="col-md-6"><div class="mb-3"><label>Kelas Target</label><select name="kelas" class="form-select"><option value="TK A">TK A</option><option value="TK B">TK B</option><option value="TK C">TK C</option><option value="semua">Semua Kelas</option></select></div></div></div>
+                    <hr><div class="d-flex justify-content-between"><a href="{{ url_for('guru.tugas') }}" class="btn btn-secondary">Batal</a><button type="submit" class="btn btn-success">Posting Tugas</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

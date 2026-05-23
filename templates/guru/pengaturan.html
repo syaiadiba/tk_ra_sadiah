@@ -1,0 +1,11 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Pengaturan - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Pengaturan{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6"><div class="card shadow-sm"><div class="card-header bg-secondary text-white"><h5><i class="fas fa-bell"></i> Notifikasi</h5></div><div class="card-body"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="emailNotif" checked><label class="form-check-label">Notifikasi via Email</label></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="tugasNotif" checked><label class="form-check-label">Notifikasi Tugas Baru</label></div></div></div></div>
+    <div class="col-md-6"><div class="card shadow-sm"><div class="card-header bg-secondary text-white"><h5><i class="fas fa-palette"></i> Tampilan</h5></div><div class="card-body"><label class="form-label">Mode Tampilan</label><select class="form-select"><option>Terang</option><option>Gelap</option></select></div></div></div>
+</div>
+{% endblock %}

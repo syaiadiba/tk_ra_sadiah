@@ -1,0 +1,27 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Profil Saya - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Profil Saya{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white"><h5><i class="fas fa-user-edit"></i> Edit Profil Guru</h5></div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row"><div class="col-md-6"><div class="mb-3"><label>Nama Lengkap</label><input type="text" name="full_name" class="form-control" value="{{ name }}" required></div></div>
+                    <div class="col-md-6"><div class="mb-3"><label>Email</label><input type="email" name="email" class="form-control" value="{{ email|default('') }}"></div></div></div>
+                    <div class="row"><div class="col-md-6"><div class="mb-3"><label>NIP</label><input type="text" name="nip" class="form-control" value="{{ nip|default('') }}"></div></div>
+                    <div class="col-md-6"><div class="mb-3"><label>Mata Pelajaran</label><input type="text" name="mata_pelajaran" class="form-control" value="{{ mata_pelajaran|default('') }}"></div></div></div>
+                    <div class="row"><div class="col-md-6"><div class="mb-3"><label>No. Telepon</label><input type="text" name="phone" class="form-control" value="{{ phone|default('') }}"></div></div>
+                    <div class="col-md-6"><div class="mb-3"><label>Jenis Kelamin</label><select name="jenis_kelamin" class="form-select"><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option></select></div></div></div>
+                    <div class="mb-3"><label>Alamat</label><textarea name="address" class="form-control" rows="2">{{ address|default('') }}</textarea></div>
+                    <div class="mb-3"><label>Password Baru <span class="text-muted">(Opsional)</span></label><input type="password" name="password" class="form-control" placeholder="Kosongkan jika tidak ingin mengganti"></div>
+                    <hr><div class="d-flex justify-content-between"><a href="{{ url_for('guru.dashboard') }}" class="btn btn-secondary">Kembali</a><button type="submit" class="btn btn-success">Simpan Perubahan</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -11,28 +11,36 @@ logger = logging.getLogger(__name__)
 
 
 class User(BaseModel, UserMixin):
-    """User model for authentication"""
+    """User model for authentication - Extended with all fields"""
     
-    def __init__(self, id=None, username=None, role=None, password_hash=None, full_name=None):
+    def __init__(self, id=None, username=None, role=None, password_hash=None, 
+                 full_name=None, email=None, phone=None, nis=None, nisn=None, 
+                 kelas=None, nip=None, mata_pelajaran=None, jenis_kelamin=None,
+                 tanggal_lahir=None, address=None, is_active=True):
         super().__init__()
         self.id = id
         self.username = username
         self.role = role
         self.password_hash = password_hash
         self.full_name = full_name
+        self.email = email          # ← FIELD EMAIL
+        self.phone = phone
+        self.nis = nis
+        self.nisn = nisn
+        self.kelas = kelas
+        self.nip = nip
+        self.mata_pelajaran = mata_pelajaran
+        self.jenis_kelamin = jenis_kelamin
+        self.tanggal_lahir = tanggal_lahir
+        self.address = address
+        self.is_active = is_active
     
     def get_table_name(self):
         return 'users'
     
-    # ============================================
-    # CREATE TABLE METHOD - PERBAIKI INI!
-    # ============================================
     @classmethod
     def create_table(cls):
-        """
-        Create users table in PostgreSQL
-        Menggunakan @classmethod agar bisa dipanggil tanpa instance
-        """
+        """Create users table with all fields"""
         query = """
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -40,6 +48,17 @@ class User(BaseModel, UserMixin):
             password_hash VARCHAR(255) NOT NULL,
             role VARCHAR(20) NOT NULL CHECK (role IN ('murid', 'guru', 'admin')),
             full_name VARCHAR(200),
+            email VARCHAR(100) UNIQUE,
+            phone VARCHAR(20),
+            nis VARCHAR(20) UNIQUE,
+            nisn VARCHAR(20) UNIQUE,
+            kelas VARCHAR(20),
+            nip VARCHAR(20) UNIQUE,
+            mata_pelajaran VARCHAR(100),
+            jenis_kelamin VARCHAR(10),
+            tanggal_lahir DATE,
+            address TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
             reset_token VARCHAR(100),
             reset_token_expiry TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -47,7 +66,6 @@ class User(BaseModel, UserMixin):
         )
         """
         try:
-            # Buat instance temporary untuk execute_query
             temp = User()
             temp.execute_query(query)
             print("✅ Tabel 'users' berhasil dibuat / sudah ada")
@@ -56,9 +74,6 @@ class User(BaseModel, UserMixin):
             print(f"❌ Gagal membuat tabel users: {str(e)}")
             return False
     
-    # ============================================
-    # METHOD LAINNYA
-    # ============================================
     def set_password(self, password):
         salt = bcrypt.gensalt()
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
@@ -97,7 +112,9 @@ class User(BaseModel, UserMixin):
                     id=user_data['id'],
                     username=user_data['username'],
                     role=user_data['role'],
-                    password_hash=user_data['password_hash']
+                    password_hash=user_data['password_hash'],
+                    full_name=user_data.get('full_name'),
+                    email=user_data.get('email')        # ← TAMBAHKAN
                 )
                 if user.check_password(password):
                     return user
@@ -117,7 +134,15 @@ class User(BaseModel, UserMixin):
                     username=user_data['username'],
                     role=user_data['role'],
                     password_hash=user_data['password_hash'],
-                    full_name=user_data.get('full_name')
+                    full_name=user_data.get('full_name'),
+                    email=user_data.get('email'),           # ← TAMBAHKAN
+                    phone=user_data.get('phone'),
+                    nis=user_data.get('nis'),
+                    kelas=user_data.get('kelas'),
+                    nip=user_data.get('nip'),
+                    mata_pelajaran=user_data.get('mata_pelajaran'),
+                    jenis_kelamin=user_data.get('jenis_kelamin'),
+                    address=user_data.get('address')
                 )
             return None
         except Exception as e:
@@ -131,7 +156,7 @@ class User(BaseModel, UserMixin):
         return True
     
     def is_active(self):
-        return True
+        return self.is_active
     
     def is_anonymous(self):
         return False
