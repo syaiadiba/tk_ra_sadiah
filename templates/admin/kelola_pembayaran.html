@@ -1,149 +1,55 @@
-{% extends "base.html" %}
-
-{% block title %}Kelola Pembayaran - TK RA SA'DIAH{% endblock %}
-
-{% block content %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h3><i class="fas fa-money-bill-wave"></i> Kelola Pembayaran SPP</h3>
-                    <p class="mb-0">Kelola pembayaran SPP siswa, tambah, edit, dan hapus data pembayaran</p>
-                </div>
+<!-- Form Tambah Pembayaran -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-plus-circle"></i> Tambah Pembayaran</h5>
             </div>
-        </div>
-    </div>
-
-    <!-- Statistik Pembayaran -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-body">
-                    <h5 class="text-secondary">Total Tagihan</h5>
-                    <h3 class="text-primary">Rp {{ "{:,.0f}".format(total_tagihan|default(0)) }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-body">
-                    <h5 class="text-success">Total Dibayar</h5>
-                    <h3 class="text-success">Rp {{ "{:,.0f}".format(total_terbayar|default(0)) }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-body">
-                    <h5 class="text-danger">Sisa Tagihan</h5>
-                    <h3 class="text-danger">Rp {{ "{:,.0f}".format(total_belum_bayar|default(0)) }}</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Form Tambah Pembayaran -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <h5><i class="fas fa-plus-circle"></i> Tambah Pembayaran</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('admin.tambah_pembayaran') }}" class="row g-3">
-                        <div class="col-md-3">
-                            <select name="murid_id" class="form-control" required>
-                                <option value="">Pilih Siswa</option>
-                                {% for s in siswa %}
-                                <option value="{{ s.id }}">{{ s.full_name }} ({{ s.nis|default('-') }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <select name="bulan" class="form-control" required>
-                                <option value="">Bulan</option>
-                                <option value="Januari">Januari</option>
-                                <option value="Februari">Februari</option>
-                                <option value="Maret">Maret</option>
-                                <option value="April">April</option>
-                                <option value="Mei">Mei</option>
-                                <option value="Juni">Juni</option>
-                                <option value="Juli">Juli</option>
-                                <option value="Agustus">Agustus</option>
-                                <option value="September">September</option>
-                                <option value="Oktober">Oktober</option>
-                                <option value="November">November</option>
-                                <option value="Desember">Desember</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <input type="number" name="tahun" class="form-control" placeholder="Tahun" value="2024" required>
-                        </div>
-                        <div class="col-md-2">
-                            <input type="number" name="nominal" class="form-control" placeholder="Nominal" value="500000" required>
-                        </div>
-                        <div class="col-md-2">
-                            <select name="status" class="form-control">
-                                <option value="belum_bayar">Belum Bayar</option>
-                                <option value="lunas">Lunas</option>
-                            </select>
-                        </div>
-                        <div class="col-md-1">
-                            <button type="submit" class="btn btn-primary w-100">Tambah</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabel Pembayaran -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <h5><i class="fas fa-table"></i> Daftar Pembayaran</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead class="table-info">
-                                <tr>
-                                    <th>Siswa</th><th>NIS</th><th>Kelas</th>
-                                    <th>Bulan</th><th>Tahun</th><th>Nominal</th><th>Status</th><th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for p in pembayaran %}
-                                <tr>
-                                    <td>{{ p.murid_name }}</td><td>{{ p.nis|default('-') }}</td><td>{{ p.kelas|default('-') }}
-                                    <td>{{ p.bulan }}</td><td>{{ p.tahun }}</td>
-                                    <td>Rp {{ "{:,.0f}".format(p.nominal) }}</td>
-                                    <td>
-                                        <form method="POST" action="{{ url_for('admin.edit_pembayaran', id=p.id) }}" style="display:inline">
-                                            <select name="status" class="form-select form-select-sm" style="width:120px">
-                                                <option value="belum_bayar" {% if p.status == 'belum_bayar' %}selected{% endif %}>Belum Bayar</option>
-                                                <option value="lunas" {% if p.status == 'lunas' %}selected{% endif %}>Lunas</option>
-                                            </select>
-                                            <button type="submit" class="btn btn-sm btn-warning mt-1">Update</button>
-                                        </form>
-                                    </td>
-                                    <td>
-                                        <a href="{{ url_for('admin.hapus_pembayaran', id=p.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin?')">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="8" class="text-center">Belum ada data pembayaran</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.tambah_pembayaran') }}" class="row g-3">
+                    <div class="col-md-3">
+                        <select name="nis_murid" class="form-control" required>  <!-- ← GANTI MURID_ID JADI NIS_MURID -->
+                            <option value="">Pilih Siswa</option>
+                            {% for s in siswa %}
+                            <option value="{{ s.nis }}">{{ s.full_name }} ({{ s.nis|default('-') }})</option>  <!-- ← VALUE PAKAI NIS -->
+                            {% endfor %}
+                        </select>
                     </div>
-                </div>
+                    <!-- sisanya tetap sama -->
+                    <div class="col-md-2">
+                        <select name="bulan" class="form-control" required>
+                            <option value="">Bulan</option>
+                            <option value="Januari">Januari</option>
+                            <option value="Februari">Februari</option>
+                            <option value="Maret">Maret</option>
+                            <option value="April">April</option>
+                            <option value="Mei">Mei</option>
+                            <option value="Juni">Juni</option>
+                            <option value="Juli">Juli</option>
+                            <option value="Agustus">Agustus</option>
+                            <option value="September">September</option>
+                            <option value="Oktober">Oktober</option>
+                            <option value="November">November</option>
+                            <option value="Desember">Desember</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" name="tahun" class="form-control" placeholder="Tahun" value="2024" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" name="nominal" class="form-control" placeholder="Nominal" value="500000" required>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="status" class="form-control">
+                            <option value="belum_bayar">Belum Bayar</option>
+                            <option value="lunas">Lunas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary w-100">Tambah</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}

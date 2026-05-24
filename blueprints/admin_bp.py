@@ -151,7 +151,7 @@ def dashboard():
              FROM users WHERE role = 'murid' ORDER BY created_at DESC LIMIT 5)
             UNION ALL
             (SELECT 'pembayaran' as tipe, u.full_name as nama, p.created_at, p.status as aksi 
-             FROM pembayaran p JOIN users u ON p.murid_id = u.id ORDER BY p.created_at DESC LIMIT 5)
+             FROM pembayaran p JOIN users u ON p.nis_murid = u.nis ORDER BY p.created_at DESC LIMIT 5)
             ORDER BY created_at DESC LIMIT 10
         """)
         aktivitas = cur.fetchall()
@@ -175,31 +175,47 @@ def dashboard():
 
 
 # ============================================
-# KELOLA SISWA (DENGAN SORTING)
+# KELOLA SISWA (DITAMBAHKAN)
 # ============================================
 @admin_bp.route('/siswa')
 def kelola_siswa():
+    """Kelola data siswa dengan pencarian dan sorting"""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM users WHERE role = 'murid' ORDER BY id")
+        
+        # Ambil parameter dari URL
+        search_query = request.args.get('search_query', '')
+        sort_by = request.args.get('sort_by', 'full_name')
+        sort_type = request.args.get('sort_type', 'merge')
+        
+        # Ambil data siswa
+        if search_query:
+            # Cari berdasarkan nama atau NIS
+            cur.execute("""
+                SELECT * FROM users 
+                WHERE role = 'murid' 
+                AND (full_name ILIKE %s OR nis ILIKE %s)
+                ORDER BY full_name
+            """, (f'%{search_query}%', f'%{search_query}%'))
+        else:
+            cur.execute("SELECT * FROM users WHERE role = 'murid' ORDER BY full_name")
+        
         siswa = cur.fetchall()
         cur.close()
         conn.close()
         
-        search = request.args.get('search', '')
-        sort_by = request.args.get('sort_by', 'full_name')
-        sort_type = request.args.get('sort_type', 'merge')
-        search_query = request.args.get('search_query', '')
-        
+        # Sorting dengan algoritma yang dipilih
         if sort_type == 'merge':
             siswa = merge_sort(siswa, sort_by)
         elif sort_type == 'insertion':
             siswa = insertion_sort(siswa, sort_by)
+        elif sort_type == 'shell':
+            siswa = shell_sort(siswa, sort_by)
         
+        # Tampilkan pesan hasil pencarian
         if search_query:
-            siswa = binary_search(siswa, 'full_name', search_query)
-            flash(f'🔍 Binary Search: Ditemukan {len(siswa)} data', 'info')
+            flash(f'🔍 Menampilkan {len(siswa)} hasil pencarian untuk "{search_query}"', 'info')
         
         return render_template('admin/kelola_siswa.html',
                              active_menu='siswa',
@@ -212,7 +228,6 @@ def kelola_siswa():
         logger.error(f"Kelola siswa error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
         return redirect(url_for('admin.dashboard'))
-
 
 # ============================================
 # TAMBAH SISWA
@@ -366,7 +381,7 @@ def hapus_siswa(id):
 
 
 # ============================================
-# KELOLA GURU (DENGAN BINARY SEARCH & SHELL/MERGE SORT)
+# KELOLA GURU
 # ============================================
 @admin_bp.route('/guru')
 def kelola_guru():
@@ -382,9 +397,6 @@ def kelola_guru():
         sort_by = request.args.get('sort_by', 'full_name')
         sort_type = request.args.get('sort_type', 'merge')
         
-        # ============================================
-        # SORTING DATA
-        # ============================================
         if sort_type == 'merge':
             guru = merge_sort(guru, sort_by)
             flash_msg = f'✅ Data diurutkan dengan Merge Sort (O(n log n)) berdasarkan {sort_by}'
@@ -395,9 +407,6 @@ def kelola_guru():
             guru = merge_sort(guru, sort_by)
             flash_msg = f'✅ Data diurutkan dengan Merge Sort (O(n log n)) berdasarkan {sort_by}'
         
-        # ============================================
-        # BINARY SEARCH (HARUS DATA SUDAH TERURUT)
-        # ============================================
         if search_query:
             guru_sorted = merge_sort(guru, 'full_name')
             guru = binary_search(guru_sorted, 'full_name', search_query)
@@ -557,12 +566,12 @@ def kelola_pembayaran():
         cur.execute("""
             SELECT p.*, u.full_name as murid_name, u.nis, u.kelas
             FROM pembayaran p
-            JOIN users u ON p.murid_id = u.id
+            JOIN users u ON p.nis_murid = u.nis
             ORDER BY p.tahun DESC, p.bulan DESC
         """)
         pembayaran = cur.fetchall()
         
-        cur.execute("SELECT id, full_name, nis, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
+        cur.execute("SELECT nis, full_name, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
         siswa = cur.fetchall()
         
         total_tagihan = sum(p['nominal'] for p in pembayaran)
@@ -588,7 +597,7 @@ def kelola_pembayaran():
 @admin_bp.route('/pembayaran/tambah', methods=['POST'])
 def tambah_pembayaran():
     try:
-        murid_id = request.form.get('murid_id')
+        nis_murid = request.form.get('nis_murid')
         bulan = request.form.get('bulan')
         tahun = request.form.get('tahun')
         nominal = request.form.get('nominal')
@@ -597,9 +606,9 @@ def tambah_pembayaran():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO pembayaran (murid_id, bulan, tahun, nominal, status, created_at, updated_at)
+            INSERT INTO pembayaran (nis_murid, bulan, tahun, nominal, status, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (murid_id, bulan, tahun, nominal, status, datetime.now(), datetime.now()))
+        """, (nis_murid, bulan, tahun, nominal, status, datetime.now(), datetime.now()))
         conn.commit()
         cur.close()
         conn.close()
@@ -646,7 +655,7 @@ def hapus_pembayaran(id):
 
 
 # ============================================
-# E-RAPOR (CRUD)
+# E-RAPOR
 # ============================================
 @admin_bp.route('/e-rapor')
 def e_rapor():
@@ -724,7 +733,7 @@ def hapus_e_rapor(id):
 
 
 # ============================================
-# PENGUMUMAN (CRUD)
+# PENGUMUMAN
 # ============================================
 @admin_bp.route('/pengumuman')
 def kelola_pengumuman():
@@ -779,7 +788,7 @@ def hapus_pengumuman(id):
 
 
 # ============================================
-# PENUGASAN (VIEW ONLY - Guru yang membuat)
+# PENUGASAN
 # ============================================
 @admin_bp.route('/penugasan')
 def kelola_penugasan():
@@ -828,7 +837,6 @@ def profil():
             cur.close()
             conn.close()
             
-            # Update current_user object
             current_user.full_name = full_name
             current_user.email = email
             current_user.phone = phone
@@ -840,7 +848,6 @@ def profil():
             logger.error(f"Update profil error: {str(e)}")
             flash('Terjadi kesalahan', 'danger')
     
-    # Ambil data terbaru dari database
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT full_name, email, phone FROM users WHERE id = %s", (current_user.id,))
@@ -860,7 +867,6 @@ def profil():
 # ============================================
 @admin_bp.route('/pengaturan')
 def pengaturan():
-    """Halaman pengaturan sistem"""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
