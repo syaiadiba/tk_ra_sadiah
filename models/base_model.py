@@ -1,43 +1,40 @@
 """
-Base Model with PostgreSQL Connection
-Menggunakan Database URL Builder dari config
+Base Model - Disesuaikan untuk Supabase
 """
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import os
 import logging
 from abc import ABC, abstractmethod
-from config import Config
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
 
 class BaseModel(ABC):
-    """Abstract base class for all models"""
     
     def __init__(self):
-        self.primary_key = 'id'
-        # Ambil konfigurasi dari Config
-        self.db_config = Config.get_db_config()
-        self.db_url = Config.build_database_url()  # ← Database URL Builder
+        self.primary_key = 'id'  # Default, bisa di-override
+        # Gunakan DATABASE_URL dari environment (Supabase)
+        self.database_url = os.getenv('DATABASE_URL', '')
     
     def get_connection(self):
-        """Get PostgreSQL database connection"""
+        """
+        Get database connection menggunakan DATABASE_URL (Supabase)
+        """
         try:
-            # Cara 1: Pakai dictionary config
-            conn = psycopg2.connect(**self.db_config)
+            if not self.database_url:
+                raise Exception("DATABASE_URL tidak ditemukan di environment!")
+            
+            # Koneksi langsung menggunakan URL
+            conn = psycopg2.connect(self.database_url)
             return conn
         except Exception as e:
-            logger.error(f"Database connection error: {str(e)}")
-            raise
-    
-    def get_connection_from_url(self):
-        """Alternatif: Koneksi menggunakan URL (cara lain)"""
-        try:
-            conn = psycopg2.connect(self.db_url)
-            return conn
-        except Exception as e:
-            logger.error(f"Database connection error (URL): {str(e)}")
+            logger.error(f"Connection error: {str(e)}")
+            print(f"❌ Gagal koneksi ke Supabase: {str(e)}")
+            print("   Periksa DATABASE_URL di file .env")
             raise
     
     @abstractmethod
@@ -45,7 +42,6 @@ class BaseModel(ABC):
         pass
     
     def execute_query(self, query, params=None, fetch_one=False, fetch_all=False):
-        """Execute database query"""
         conn = None
         cursor = None
         try:
@@ -54,19 +50,16 @@ class BaseModel(ABC):
             cursor.execute(query, params or ())
             
             if fetch_one:
-                result = cursor.fetchone()
+                return cursor.fetchone()
             elif fetch_all:
-                result = cursor.fetchall()
+                return cursor.fetchall()
             else:
                 conn.commit()
-                result = cursor.rowcount
-            
-            return result
-            
+                return cursor.rowcount
         except Exception as e:
             if conn:
                 conn.rollback()
-            logger.error(f"Database error: {str(e)}")
+            logger.error(f"Query error: {str(e)}")
             raise
         finally:
             if cursor:
@@ -74,7 +67,15 @@ class BaseModel(ABC):
             if conn:
                 conn.close()
     
+    # ============================================
+    # METHOD CRUD
+    # ============================================
+    
     def get_all(self, limit=None, offset=None, order_by=None):
+        """
+        Get all records with pagination
+        Time Complexity: O(n)
+        """
         try:
             query = f"SELECT * FROM {self.get_table_name()}"
             if order_by:
@@ -89,6 +90,10 @@ class BaseModel(ABC):
             raise
     
     def get_by_id(self, record_id):
+        """
+        Get record by ID
+        Time Complexity: O(log n)
+        """
         try:
             query = f"SELECT * FROM {self.get_table_name()} WHERE {self.primary_key} = %s"
             return self.execute_query(query, (record_id,), fetch_one=True)
@@ -96,11 +101,32 @@ class BaseModel(ABC):
             logger.error(f"Error in get_by_id: {str(e)}")
             raise
     
-    def insert(self, data):
+    def count(self):
+        """
+        Get total number of records
+        Time Complexity: O(n)
+        """
         try:
+            query = f"SELECT COUNT(*) as total FROM {self.get_table_name()}"
+            result = self.execute_query(query, fetch_one=True)
+            return result['total'] if result else 0
+        except Exception as e:
+            logger.error(f"Error in count: {str(e)}")
+            raise
+    
+    def insert(self, data):
+        """
+        Insert new record
+        Time Complexity: O(1)
+        """
+        try:
+            if not data:
+                raise ValueError("Data tidak boleh kosong")
+            
             columns = ', '.join(data.keys())
             placeholders = ', '.join(['%s'] * len(data))
             query = f"INSERT INTO {self.get_table_name()} ({columns}) VALUES ({placeholders}) RETURNING {self.primary_key}"
+            
             result = self.execute_query(query, tuple(data.values()), fetch_one=True)
             return result[self.primary_key] if result else None
         except Exception as e:
@@ -108,7 +134,14 @@ class BaseModel(ABC):
             raise
     
     def update(self, record_id, data):
+        """
+        Update record by ID
+        Time Complexity: O(1)
+        """
         try:
+            if not data:
+                raise ValueError("Data update tidak boleh kosong")
+            
             set_clause = ', '.join([f"{key} = %s" for key in data.keys()])
             query = f"UPDATE {self.get_table_name()} SET {set_clause} WHERE {self.primary_key} = %s"
             params = tuple(data.values()) + (record_id,)
@@ -118,26 +151,13 @@ class BaseModel(ABC):
             raise
     
     def delete(self, record_id):
+        """
+        Delete record by ID
+        Time Complexity: O(1)
+        """
         try:
             query = f"DELETE FROM {self.get_table_name()} WHERE {self.primary_key} = %s"
             return self.execute_query(query, (record_id,))
         except Exception as e:
             logger.error(f"Error in delete: {str(e)}")
-            raise
-    
-    def sequential_search(self, records, key, search_value):
-        """Sequential search implementation - Time Complexity: O(n)"""
-        try:
-            results = []
-            comparisons = 0
-            for record in records:
-                comparisons += 1
-                if (str(record.get(key, '')).lower() == str(search_value).lower() or
-                    str(record.get('username', '')).lower().find(str(search_value).lower()) != -1 or
-                    str(record.get('full_name', '')).lower().find(str(search_value).lower()) != -1):
-                    results.append(record)
-            logger.info(f"Sequential search: {comparisons} comparisons, {len(results)} results")
-            return results, comparisons
-        except Exception as e:
-            logger.error(f"Error in sequential_search: {str(e)}")
             raise

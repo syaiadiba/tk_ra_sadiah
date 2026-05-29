@@ -1,6 +1,6 @@
 """
 Configuration for TK RA SA'DIAH
-Menggunakan PostgreSQL Lokal dengan Database Builder
+Menggunakan Supabase (PostgreSQL Cloud)
 """
 
 import os
@@ -16,46 +16,49 @@ class Config:
     # Flask Configuration
     SECRET_KEY = os.getenv('SECRET_KEY', '881a10aa6949dac202a7c6b42565848350761e91ae30272daf1e7b7ca029f1ad')
     
-    # PostgreSQL Configuration
-    DB_HOST = os.getenv('DB_HOST', 'localhost')
-    DB_PORT = os.getenv('DB_PORT', '5432')
-    DB_USER = os.getenv('DB_USER', 'postgres')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', '')
-    DB_NAME = os.getenv('DB_NAME', 'tk_ra_sadiah')
+    # ============================================
+    # SUPABASE CONFIGURATION (Pengganti PostgreSQL Lokal)
+    # ============================================
+    
+    # Supabase URL dan Keys
+    SUPABASE_URL = os.getenv('SUPABASE_URL', '')
+    SUPABASE_KEY = os.getenv('SUPABASE_KEY', '')
+    SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY', '')
+    
+    # Database Connection String (dari Supabase)
+    # Format: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
+    DATABASE_URL = os.getenv('DATABASE_URL', '')
     
     # ============================================
-    # DATABASE URL BUILDER - INI YANG PENTING!
+    # METHOD UNTUK SUPABASE
     # ============================================
-    @classmethod
-    def build_database_url(cls):
-        """
-        Membangun URL database dari konfigurasi
-        Format: postgresql://user:password@host:port/database
-        """
-        # Encode password untuk karakter spesial (@, #, $, dll)
-        encoded_password = quote_plus(cls.DB_PASSWORD) if cls.DB_PASSWORD else ''
-        
-        # Bangun URL
-        database_url = f"postgresql://{cls.DB_USER}:{encoded_password}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
-        
-        return database_url
     
     @classmethod
     def get_db_config(cls):
-        """Return dictionary config untuk psycopg2"""
-        return {
-            'host': cls.DB_HOST,
-            'port': cls.DB_PORT,
-            'user': cls.DB_USER,
-            'password': cls.DB_PASSWORD,
-            'database': cls.DB_NAME
-        }
+        """
+        Return database config untuk psycopg2 dari DATABASE_URL
+        """
+        return cls.DATABASE_URL
     
     @classmethod
-    def get_safe_url(cls):
-        """Return URL dengan password tersembunyi (untuk logging)"""
-        url = cls.build_database_url()
-        return url.replace(cls.DB_PASSWORD, '******') if cls.DB_PASSWORD else url
+    def get_supabase_client(cls):
+        """
+        Get Supabase client (untuk operasi via API)
+        """
+        if cls.SUPABASE_URL and cls.SUPABASE_KEY:
+            from supabase import create_client
+            return create_client(cls.SUPABASE_URL, cls.SUPABASE_KEY)
+        return None
+    
+    @classmethod
+    def get_supabase_admin_client(cls):
+        """
+        Get Supabase admin client dengan service role key
+        """
+        if cls.SUPABASE_URL and cls.SUPABASE_SERVICE_KEY:
+            from supabase import create_client
+            return create_client(cls.SUPABASE_URL, cls.SUPABASE_SERVICE_KEY)
+        return None
 
 
 class DevelopmentConfig(Config):
