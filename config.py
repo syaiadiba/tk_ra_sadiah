@@ -14,7 +14,7 @@ class Config:
     """Base configuration class"""
     
     # Flask Configuration
-    SECRET_KEY = os.getenv('SECRET_KEY', '881a10aa6949dac202a7c6b42565848350761e91ae30272daf1e7b7ca029f1ad')
+    SECRET_KEY = os.getenv('SECRET_KEY','dev-secret-key-change-in-production')
     
     # ============================================
     # SUPABASE CONFIGURATION (Pengganti PostgreSQL Lokal)
