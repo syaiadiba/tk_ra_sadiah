@@ -1,57 +1,113 @@
 """
-Configuration for TK RA SA'DIAH
-Menggunakan Supabase (PostgreSQL Cloud)
+TK RA SA'DIAH Web Application
+Main application file for Flask web server
 """
 
+from flask import Flask, redirect, url_for
+from flask_login import LoginManager, current_user
 import os
+import logging
 from dotenv import load_dotenv
-from urllib.parse import quote_plus
+from config import config_dict
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class Config:
-    """Base configuration class"""
+
+def create_app(config_name='default'):
+    """Application factory pattern"""
+    app = Flask(__name__)
     
-    # Flask Configuration
-    SECRET_KEY = os.getenv('SECRET_KEY', '881a10aa6949dac202a7c6b42565848350761e91ae30272daf1e7b7ca029f1ad')
+    # Load configuration
+    config = config_dict.get(config_name, config_dict['default'])
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+    app.config['DEBUG'] = config.DEBUG
     
-    # ============================================
-    # SUPABASE CONFIGURATION
-    # ============================================
-    SUPABASE_URL = os.getenv('SUPABASE_URL', '')
-    SUPABASE_KEY = os.getenv('SUPABASE_KEY', '')
-    SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY', '')
-    DATABASE_URL = os.getenv('DATABASE_URL', '')
+    # Initialize Flask-Login
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Silakan login terlebih dahulu'
+    login_manager.login_message_category = 'info'
     
-    @classmethod
-    def get_db_config(cls):
-        """Return database config untuk psycopg2"""
-        return cls.DATABASE_URL
+    # Import models here to avoid circular imports
+    from models.user_model import User
     
-    @classmethod
-    def get_supabase_client(cls):
-        """Get Supabase client"""
-        if cls.SUPABASE_URL and cls.SUPABASE_KEY:
-            from supabase import create_client
-            return create_client(cls.SUPABASE_URL, cls.SUPABASE_KEY)
-        return None
+    @login_manager.user_loader
+    def load_user(user_id):
+        """Load user by ID for Flask-Login"""
+        try:
+            return User.get(int(user_id))
+        except Exception as e:
+            logger.error(f"Error loading user: {str(e)}")
+            return None
+    
+    # Register all blueprints
+    try:
+        from blueprints.auth_bp import auth_bp
+        from blueprints.murid_bp import murid_bp
+        from blueprints.guru_bp import guru_bp
+        from blueprints.admin_bp import admin_bp
+        from blueprints.umum_bp import umum_bp
+        
+        app.register_blueprint(auth_bp)
+        app.register_blueprint(murid_bp)
+        app.register_blueprint(guru_bp)
+        app.register_blueprint(admin_bp)
+        app.register_blueprint(umum_bp)
+        
+        logger.info("All blueprints registered successfully")
+        
+    except ImportError as e:
+        logger.error(f"Blueprint import error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error registering blueprints: {str(e)}")
+    
+    # Default route
+    @app.route('/')
+    def index():
+        """Home page - redirect to login"""
+        if current_user.is_authenticated:
+            if current_user.role == 'admin':
+                return redirect(url_for('admin.dashboard'))
+            elif current_user.role == 'guru':
+                return redirect(url_for('guru.dashboard'))
+            elif current_user.role == 'murid':
+                return redirect(url_for('murid.dashboard'))
+        return redirect(url_for('auth.login'))
+    
+    logger.info("Application initialized successfully")
+    return app
 
 
-class DevelopmentConfig(Config):
-    DEBUG = True
-    TESTING = False
-
-
-class ProductionConfig(Config):
-    DEBUG = False
-    TESTING = False
-
-
-__all__ = ['Config', 'DevelopmentConfig', 'ProductionConfig']
-
-config_dict = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'default': DevelopmentConfig
-}
+# ============================================
+# MAIN
+# ============================================
+if __name__ == '__main__':
+    # Get configuration from environment
+    flask_env = os.getenv('FLASK_ENV', 'development')
+    host = os.getenv('FLASK_HOST', '127.0.0.1')
+    port = int(os.getenv('FLASK_PORT', 5000))
+    
+    print("=" * 60)
+    print("🏫 TK RA SA'DIAH - SISTEM INFORMASI SEKOLAH")
+    print("=" * 60)
+    print(f"🌍 Environment: {flask_env}")
+    print(f"🗄️  Database: Supabase (PostgreSQL Cloud)")
+    print("=" * 60)
+    print(f"\n🚀 Server: http://{host}:{port}")
+    print("=" * 60)
+    print("\n📝 AKUN DEFAULT:")
+    print("   👑 Admin  - admin / admin123")
+    print("   👩‍🏫 Guru   - guru / admin123")
+    print("   👧 Murid  - murid1 / admin123")
+    print("=" * 60)
+    print("\n🚀 Starting server...\n")
+    
+    # Create app instance
+    app = create_app(flask_env)
+    
+    # Run the application
+    app.run(host=host, port=port, debug=app.config['DEBUG'])
