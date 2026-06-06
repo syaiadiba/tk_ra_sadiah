@@ -83,7 +83,13 @@ def create_app(config_name='default'):
 
 
 # ============================================
-# MAIN
+# CREATE APP INSTANCE FOR GUNICORN (PRODUCTION)
+# ============================================
+app = create_app()
+
+
+# ============================================
+# MAIN (Untuk Development)
 # ============================================
 if __name__ == '__main__':
     # Get configuration from environment
@@ -106,8 +112,5 @@ if __name__ == '__main__':
     print("=" * 60)
     print("\n🚀 Starting server...\n")
     
-    # Create app instance
-    app = create_app(flask_env)
-    
-    # Run the application
+    # App already created, just run it
     app.run(host=host, port=port, debug=app.config['DEBUG'])
