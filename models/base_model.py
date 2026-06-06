@@ -1,9 +1,8 @@
 """
-Base Model - Disesuaikan untuk Supabase
+Base Model - Disesuaikan untuk Supabase dengan pg8000
 """
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import pg8000
 import os
 import logging
 from abc import ABC, abstractmethod
@@ -22,14 +21,14 @@ class BaseModel(ABC):
     
     def get_connection(self):
         """
-        Get database connection menggunakan DATABASE_URL (Supabase)
+        Get database connection menggunakan DATABASE_URL (Supabase) dengan pg8000
         """
         try:
             if not self.database_url:
                 raise Exception("DATABASE_URL tidak ditemukan di environment!")
             
-            # Koneksi langsung menggunakan URL
-            conn = psycopg2.connect(self.database_url)
+            # Koneksi langsung menggunakan URL dengan pg8000
+            conn = pg8000.connect(self.database_url)
             return conn
         except Exception as e:
             logger.error(f"Connection error: {str(e)}")
@@ -46,13 +45,23 @@ class BaseModel(ABC):
         cursor = None
         try:
             conn = self.get_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor = conn.cursor()
             cursor.execute(query, params or ())
             
             if fetch_one:
-                return cursor.fetchone()
+                result = cursor.fetchone()
+                # Konversi tuple ke dictionary
+                if result:
+                    columns = [desc[0] for desc in cursor.description]
+                    result = dict(zip(columns, result))
+                return result
             elif fetch_all:
-                return cursor.fetchall()
+                results = cursor.fetchall()
+                # Konversi list of tuples ke list of dictionaries
+                if results:
+                    columns = [desc[0] for desc in cursor.description]
+                    results = [dict(zip(columns, row)) for row in results]
+                return results
             else:
                 conn.commit()
                 return cursor.rowcount

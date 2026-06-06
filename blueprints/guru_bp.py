@@ -1,12 +1,11 @@
 """
-Guru Blueprint for TK RA SA'DIAH - FULL VERSION (ALL ROUTES)
+Guru Blueprint for TK RA SA'DIAH - FULL VERSION (ALL ROUTES) - DENGAN PG8000
 """
 
 from flask import Blueprint, render_template, flash, redirect, url_for, request
 from flask_login import login_required, current_user
 import bcrypt
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import pg8000
 import os
 import logging
 from datetime import datetime
@@ -19,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_db_connection():
-    """Mendapatkan koneksi database dari DATABASE_URL (Supabase)"""
+    """Mendapatkan koneksi database dari DATABASE_URL (Supabase) menggunakan pg8000"""
     import os
-    import psycopg2
+    import pg8000
     from dotenv import load_dotenv
     
     load_dotenv()
@@ -30,7 +29,33 @@ def get_db_connection():
     if not database_url:
         raise Exception("DATABASE_URL tidak ditemukan di environment!")
     
-    return psycopg2.connect(database_url)
+    return pg8000.connect(database_url)
+
+
+def execute_query(conn, query, params=None, fetch_one=False, fetch_all=False):
+    """Helper untuk eksekusi query dengan konversi ke dictionary"""
+    cursor = conn.cursor()
+    cursor.execute(query, params or ())
+    
+    if fetch_one:
+        result = cursor.fetchone()
+        if result:
+            columns = [desc[0] for desc in cursor.description]
+            result = dict(zip(columns, result))
+        cursor.close()
+        return result
+    elif fetch_all:
+        results = cursor.fetchall()
+        if results:
+            columns = [desc[0] for desc in cursor.description]
+            results = [dict(zip(columns, row)) for row in results]
+        cursor.close()
+        return results
+    else:
+        conn.commit()
+        rowcount = cursor.rowcount
+        cursor.close()
+        return rowcount
 
 
 # ============================================
@@ -55,35 +80,30 @@ def check_role():
 def dashboard():
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("SELECT COUNT(*) as total FROM users WHERE role = 'murid'")
-        total_murid = cur.fetchone()['total'] if cur.fetchone() else 0
+        total_murid = execute_query(conn, "SELECT COUNT(*) as total FROM users WHERE role = 'murid'", fetch_one=True)
+        total_murid = total_murid['total'] if total_murid else 0
         
-        cur.execute("SELECT COUNT(*) as total FROM tugas WHERE guru_id = %s", (current_user.id,))
-        tugas_aktif = cur.fetchone()['total'] if cur.fetchone() else 0
+        tugas_aktif = execute_query(conn, "SELECT COUNT(*) as total FROM tugas WHERE guru_id = %s", (current_user.id,), fetch_one=True)
+        tugas_aktif = tugas_aktif['total'] if tugas_aktif else 0
         
-        cur.execute("SELECT * FROM tugas WHERE guru_id = %s ORDER BY created_at DESC LIMIT 5", (current_user.id,))
-        tugas_terbaru = cur.fetchall() or []
+        tugas_terbaru = execute_query(conn, "SELECT * FROM tugas WHERE guru_id = %s ORDER BY created_at DESC LIMIT 5", (current_user.id,), fetch_all=True) or []
         
-        cur.execute("""
+        nilai_terbaru = execute_query(conn, """
             SELECT e.*, u.full_name as siswa_name 
             FROM e_rapor e 
             JOIN users u ON e.siswa_id = u.id 
             ORDER BY e.created_at DESC LIMIT 5
-        """)
-        nilai_terbaru = cur.fetchall() or []
+        """, fetch_all=True) or []
         
-        cur.execute("SELECT * FROM pengumuman ORDER BY created_at DESC LIMIT 3")
-        pengumuman_terbaru = cur.fetchall() or []
+        pengumuman_terbaru = execute_query(conn, "SELECT * FROM pengumuman ORDER BY created_at DESC LIMIT 3", fetch_all=True) or []
         
-        cur.close()
         conn.close()
         
         return render_template('guru/dashboard.html',
                              name=current_user.full_name or 'Guru',
-                             email=current_user.email or '',
-                             mata_pelajaran=current_user.mata_pelajaran or '-',
+                             email=getattr(current_user, 'email', ''),
+                             mata_pelajaran=getattr(current_user, 'mata_pelajaran', '-'),
                              total_murid=total_murid,
                              tugas_aktif=tugas_aktif,
                              tugas_dikumpulkan=0,
@@ -105,12 +125,9 @@ def dashboard():
 def tugas():
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM tugas WHERE guru_id = %s ORDER BY created_at DESC", (current_user.id,))
-        tugas_list = cur.fetchall() or []
-        cur.execute("SELECT COUNT(*) as total FROM users WHERE role = 'murid'")
-        total_murid = cur.fetchone()['total'] if cur.fetchone() else 0
-        cur.close()
+        tugas_list = execute_query(conn, "SELECT * FROM tugas WHERE guru_id = %s ORDER BY created_at DESC", (current_user.id,), fetch_all=True) or []
+        total_murid = execute_query(conn, "SELECT COUNT(*) as total FROM users WHERE role = 'murid'", fetch_one=True)
+        total_murid = total_murid['total'] if total_murid else 0
         conn.close()
         return render_template('guru/tugas.html', tugas_list=tugas_list, total_murid=total_murid, active_menu='tugas')
     except Exception as e:
@@ -134,13 +151,13 @@ def buat_tugas():
         
         try:
             conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("""
+            cursor = conn.cursor()
+            cursor.execute("""
                 INSERT INTO tugas (guru_id, judul, mapel, deskripsi, deadline, kelas, created_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (current_user.id, judul, mapel, deskripsi, deadline, kelas, datetime.now()))
             conn.commit()
-            cur.close()
+            cursor.close()
             conn.close()
             flash('✅ Tugas berhasil dibuat!', 'success')
             return redirect(url_for('guru.tugas'))
@@ -155,25 +172,21 @@ def buat_tugas():
 def kirim_tugas(id):
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        cur.execute("SELECT * FROM tugas WHERE id = %s AND guru_id = %s", (id, current_user.id))
-        tugas = cur.fetchone()
+        tugas = execute_query(conn, "SELECT * FROM tugas WHERE id = %s AND guru_id = %s", (id, current_user.id), fetch_one=True)
         
         if not tugas:
             flash('Tugas tidak ditemukan!', 'danger')
+            conn.close()
             return redirect(url_for('guru.tugas'))
         
-        cur.execute("""
+        kiriman_list = execute_query(conn, """
             SELECT k.*, u.full_name as siswa_name, u.nis, u.kelas
             FROM kiriman_tugas k
             JOIN users u ON k.siswa_id = u.id
             WHERE k.tugas_id = %s
             ORDER BY k.created_at DESC
-        """, (id,))
-        kiriman_list = cur.fetchall() or []
+        """, (id,), fetch_all=True) or []
         
-        cur.close()
         conn.close()
         
         return render_template('guru/kirim_tugas.html', 
@@ -184,343 +197,6 @@ def kirim_tugas(id):
         logger.error(f"Kirim tugas error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
         return redirect(url_for('guru.tugas'))
-
-
-@guru_bp.route('/edit-tugas/<int:id>', methods=['GET', 'POST'])
-def edit_tugas(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        if request.method == 'POST':
-            judul = request.form.get('judul')
-            mapel = request.form.get('mapel')
-            deskripsi = request.form.get('deskripsi')
-            deadline = request.form.get('deadline')
-            kelas = request.form.get('kelas')
-            
-            cur.execute("""
-                UPDATE tugas SET judul=%s, mapel=%s, deskripsi=%s, deadline=%s, kelas=%s, updated_at=%s
-                WHERE id=%s AND guru_id=%s
-            """, (judul, mapel, deskripsi, deadline, kelas, datetime.now(), id, current_user.id))
-            conn.commit()
-            flash('✅ Tugas berhasil diupdate!', 'success')
-            cur.close()
-            conn.close()
-            return redirect(url_for('guru.tugas'))
-        
-        cur.execute("SELECT * FROM tugas WHERE id=%s AND guru_id=%s", (id, current_user.id))
-        tugas = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if not tugas:
-            flash('Tugas tidak ditemukan!', 'danger')
-            return redirect(url_for('guru.tugas'))
-        
-        return render_template('guru/edit_tugas.html', tugas=tugas, active_menu='tugas')
-    except Exception as e:
-        logger.error(f"Edit tugas error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('guru.tugas'))
-
-
-@guru_bp.route('/hapus-tugas/<int:id>')
-def hapus_tugas(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM tugas WHERE id=%s AND guru_id=%s", (id, current_user.id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Tugas berhasil dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus tugas error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('guru.tugas'))
-
-
-# ============================================
-# PENGUMUMAN (CRUD)
-# ============================================
-@guru_bp.route('/pengumuman')
-def pengumuman():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM pengumuman ORDER BY created_at DESC")
-        pengumuman_list = cur.fetchall() or []
-        cur.close()
-        conn.close()
-        return render_template('guru/pengumuman.html', pengumuman=pengumuman_list, active_menu='pengumuman')
-    except Exception as e:
-        logger.error(f"Pengumuman error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('guru.dashboard'))
-
-
-@guru_bp.route('/tambah-pengumuman', methods=['POST'])
-def tambah_pengumuman():
-    try:
-        judul = request.form.get('judul')
-        isi = request.form.get('isi')
-        target_role = request.form.get('target_role', 'semua')
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO pengumuman (admin_id, judul, isi, target_role, created_at)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (current_user.id, judul, isi, target_role, datetime.now()))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Pengumuman berhasil ditambahkan!', 'success')
-    except Exception as e:
-        logger.error(f"Tambah pengumuman error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('guru.pengumuman'))
-
-
-@guru_bp.route('/hapus-pengumuman/<int:id>')
-def hapus_pengumuman(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM pengumuman WHERE id=%s", (id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Pengumuman berhasil dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus pengumuman error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('guru.pengumuman'))
-
-
-# ============================================
-# DAFTAR MURID (CRUD)
-# ============================================
-@guru_bp.route('/daftar-murid')
-def daftar_murid():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM users WHERE role = 'murid' ORDER BY full_name")
-        murid_list = cur.fetchall() or []
-        cur.close()
-        conn.close()
-        return render_template('guru/daftar_murid.html', murid_list=murid_list, active_menu='daftar_murid')
-    except Exception as e:
-        logger.error(f"Daftar murid error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('guru.dashboard'))
-
-
-@guru_bp.route('/tambah-murid', methods=['GET', 'POST'])
-def tambah_murid():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        full_name = request.form.get('full_name')
-        nis = request.form.get('nis')
-        kelas = request.form.get('kelas')
-        email = request.form.get('email', '')
-        
-        if not username or not full_name or not password:
-            flash('Username, Nama, dan Password harus diisi!', 'danger')
-            return render_template('guru/tambah_murid.html', active_menu='daftar_murid')
-        
-        try:
-            hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO users (username, password_hash, role, full_name, nis, kelas, email, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (username, hashed, 'murid', full_name, nis, kelas, email, datetime.now()))
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash('✅ Murid berhasil ditambahkan!', 'success')
-            return redirect(url_for('guru.daftar_murid'))
-        except Exception as e:
-            logger.error(f"Tambah murid error: {str(e)}")
-            flash('Terjadi kesalahan', 'danger')
-    
-    return render_template('guru/tambah_murid.html', active_menu='daftar_murid')
-
-
-@guru_bp.route('/edit-murid/<int:id>', methods=['GET', 'POST'])
-def edit_murid(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        if request.method == 'POST':
-            full_name = request.form.get('full_name')
-            nis = request.form.get('nis')
-            kelas = request.form.get('kelas')
-            email = request.form.get('email')
-            password = request.form.get('password')
-            
-            if password:
-                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                cur.execute("""
-                    UPDATE users SET full_name=%s, nis=%s, kelas=%s, email=%s, password_hash=%s, updated_at=%s
-                    WHERE id=%s
-                """, (full_name, nis, kelas, email, hashed, datetime.now(), id))
-            else:
-                cur.execute("""
-                    UPDATE users SET full_name=%s, nis=%s, kelas=%s, email=%s, updated_at=%s
-                    WHERE id=%s
-                """, (full_name, nis, kelas, email, datetime.now(), id))
-            conn.commit()
-            flash('✅ Data murid berhasil diupdate!', 'success')
-            cur.close()
-            conn.close()
-            return redirect(url_for('guru.daftar_murid'))
-        
-        cur.execute("SELECT * FROM users WHERE id=%s AND role='murid'", (id,))
-        murid = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if not murid:
-            flash('Murid tidak ditemukan!', 'danger')
-            return redirect(url_for('guru.daftar_murid'))
-        
-        return render_template('guru/edit_murid.html', murid=murid, active_menu='daftar_murid')
-    except Exception as e:
-        logger.error(f"Edit murid error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('guru.daftar_murid'))
-
-
-@guru_bp.route('/hapus-murid/<int:id>')
-def hapus_murid(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM users WHERE id=%s AND role='murid'", (id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Murid berhasil dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus murid error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('guru.daftar_murid'))
-
-
-# ============================================
-# JADWAL MENGAJAR (CRUD)
-# ============================================
-@guru_bp.route('/jadwal-mengajar')
-def jadwal_mengajar():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM jadwal WHERE guru_id = %s ORDER BY hari, jam_mulai", (current_user.id,))
-        jadwal_list = cur.fetchall() or []
-        cur.close()
-        conn.close()
-        return render_template('guru/jadwal_mengajar.html', jadwal_list=jadwal_list, active_menu='jadwal')
-    except Exception as e:
-        logger.error(f"Jadwal mengajar error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('guru.dashboard'))
-
-
-# ============================================
-# NILAI & E-RAPOR (CRUD)
-# ============================================
-@guru_bp.route('/nilai')
-def nilai():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("""
-            SELECT e.*, u.full_name as siswa_name, u.kelas
-            FROM e_rapor e
-            JOIN users u ON e.siswa_id = u.id
-            ORDER BY e.created_at DESC
-        """)
-        nilai_list = cur.fetchall() or []
-        cur.execute("SELECT id, full_name, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
-        murid_list = cur.fetchall() or []
-        cur.close()
-        conn.close()
-        return render_template('guru/nilai.html', nilai_list=nilai_list, murid_list=murid_list, active_menu='nilai')
-    except Exception as e:
-        logger.error(f"Nilai error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('guru.dashboard'))
-
-
-@guru_bp.route('/tambah-nilai', methods=['POST'])
-def tambah_nilai():
-    try:
-        siswa_id = request.form.get('siswa_id')
-        mapel = request.form.get('mapel')
-        nilai = request.form.get('nilai')
-        predikat = request.form.get('predikat')
-        semester = request.form.get('semester')
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO e_rapor (siswa_id, mapel, nilai, predikat, semester, tahun_ajaran, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (siswa_id, mapel, nilai, predikat, semester, '2024/2025', datetime.now()))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Nilai berhasil ditambahkan!', 'success')
-    except Exception as e:
-        logger.error(f"Tambah nilai error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('guru.nilai'))
-
-
-@guru_bp.route('/edit-nilai/<int:id>', methods=['POST'])
-def edit_nilai(id):
-    try:
-        nilai = request.form.get('nilai')
-        predikat = request.form.get('predikat')
-        catatan = request.form.get('catatan', '')
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            UPDATE e_rapor SET nilai=%s, predikat=%s, catatan=%s, updated_at=%s
-            WHERE id=%s
-        """, (nilai, predikat, catatan, datetime.now(), id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Nilai berhasil diupdate!', 'success')
-    except Exception as e:
-        logger.error(f"Edit nilai error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('guru.nilai'))
-
-
-@guru_bp.route('/hapus-nilai/<int:id>')
-def hapus_nilai(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM e_rapor WHERE id=%s", (id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Nilai berhasil dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus nilai error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('guru.nilai'))
 
 
 # ============================================
@@ -540,24 +216,24 @@ def profil():
         
         try:
             conn = get_db_connection()
-            cur = conn.cursor()
+            cursor = conn.cursor()
             
             if password and len(password) >= 4:
                 hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                cur.execute("""
+                cursor.execute("""
                     UPDATE users SET full_name=%s, email=%s, phone=%s, nip=%s, mata_pelajaran=%s,
                                    jenis_kelamin=%s, address=%s, password_hash=%s, updated_at=%s
                     WHERE id=%s
                 """, (full_name, email, phone, nip, mata_pelajaran, jenis_kelamin, address, hashed, datetime.now(), current_user.id))
             else:
-                cur.execute("""
+                cursor.execute("""
                     UPDATE users SET full_name=%s, email=%s, phone=%s, nip=%s, mata_pelajaran=%s,
                                    jenis_kelamin=%s, address=%s, updated_at=%s
                     WHERE id=%s
                 """, (full_name, email, phone, nip, mata_pelajaran, jenis_kelamin, address, datetime.now(), current_user.id))
             
             conn.commit()
-            cur.close()
+            cursor.close()
             conn.close()
             flash('✅ Profil berhasil diupdate!', 'success')
             return redirect(url_for('guru.profil'))
@@ -567,12 +243,12 @@ def profil():
     
     return render_template('guru/profil.html',
                          name=current_user.full_name,
-                         email=current_user.email,
-                         phone=current_user.phone,
-                         nip=current_user.nip,
-                         mata_pelajaran=current_user.mata_pelajaran,
-                         jenis_kelamin=current_user.jenis_kelamin,
-                         address=current_user.address,
+                         email=getattr(current_user, 'email', ''),
+                         phone=getattr(current_user, 'phone', ''),
+                         nip=getattr(current_user, 'nip', ''),
+                         mata_pelajaran=getattr(current_user, 'mata_pelajaran', ''),
+                         jenis_kelamin=getattr(current_user, 'jenis_kelamin', ''),
+                         address=getattr(current_user, 'address', ''),
                          active_menu='profil')
 
 

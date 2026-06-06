@@ -8,8 +8,7 @@ from flask_login import login_required, current_user
 import bcrypt
 import logging
 from datetime import datetime
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import pg8000
 import os
 from dotenv import load_dotenv
 
@@ -27,9 +26,9 @@ def check_role():
 
 
 def get_db_connection():
-    """Mendapatkan koneksi database dari DATABASE_URL (Supabase)"""
+    """Mendapatkan koneksi database dari DATABASE_URL (Supabase) menggunakan pg8000"""
     import os
-    import psycopg2
+    import pg8000
     from dotenv import load_dotenv
     
     load_dotenv()
@@ -38,7 +37,33 @@ def get_db_connection():
     if not database_url:
         raise Exception("DATABASE_URL tidak ditemukan di environment!")
     
-    return psycopg2.connect(database_url)
+    return pg8000.connect(database_url)
+
+
+def execute_query(conn, query, params=None, fetch_one=False, fetch_all=False):
+    """Helper untuk eksekusi query dengan konversi ke dictionary"""
+    cursor = conn.cursor()
+    cursor.execute(query, params or ())
+    
+    if fetch_one:
+        result = cursor.fetchone()
+        if result:
+            columns = [desc[0] for desc in cursor.description]
+            result = dict(zip(columns, result))
+        cursor.close()
+        return result
+    elif fetch_all:
+        results = cursor.fetchall()
+        if results:
+            columns = [desc[0] for desc in cursor.description]
+            results = [dict(zip(columns, row)) for row in results]
+        cursor.close()
+        return results
+    else:
+        conn.commit()
+        rowcount = cursor.rowcount
+        cursor.close()
+        return rowcount
 
 
 # ============================================
@@ -137,31 +162,45 @@ def binary_search(data, key, value):
 def dashboard():
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("SELECT COUNT(*) as total FROM users WHERE role = 'murid'")
-        total_siswa = cur.fetchone()['total']
+        # Helper function untuk query
+        def run_query(query, params=None, fetch_one=False, fetch_all=False):
+            cursor = conn.cursor()
+            cursor.execute(query, params or ())
+            if fetch_one:
+                result = cursor.fetchone()
+                if result:
+                    cols = [desc[0] for desc in cursor.description]
+                    result = dict(zip(cols, result))
+                cursor.close()
+                return result
+            elif fetch_all:
+                results = cursor.fetchall()
+                if results:
+                    cols = [desc[0] for desc in cursor.description]
+                    results = [dict(zip(cols, row)) for row in results]
+                cursor.close()
+                return results
+            else:
+                conn.commit()
+                rowcount = cursor.rowcount
+                cursor.close()
+                return rowcount
         
-        cur.execute("SELECT COUNT(*) as total FROM users WHERE role = 'guru'")
-        total_guru = cur.fetchone()['total']
+        total_siswa = run_query("SELECT COUNT(*) as total FROM users WHERE role = 'murid'", fetch_one=True)['total']
+        total_guru = run_query("SELECT COUNT(*) as total FROM users WHERE role = 'guru'", fetch_one=True)['total']
+        total_pembayaran = run_query("SELECT COUNT(*) as total FROM pembayaran WHERE status = 'lunas'", fetch_one=True)['total']
+        total_rapor = run_query("SELECT COUNT(*) as total FROM e_rapor", fetch_one=True)['total']
         
-        cur.execute("SELECT COUNT(*) as total FROM pembayaran WHERE status = 'lunas'")
-        total_pembayaran = cur.fetchone()['total']
-        
-        cur.execute("SELECT COUNT(*) as total FROM e_rapor")
-        total_rapor = cur.fetchone()['total']
-        
-        cur.execute("""
+        aktivitas = run_query("""
             (SELECT 'siswa' as tipe, full_name as nama, created_at, 'ditambahkan' as aksi 
              FROM users WHERE role = 'murid' ORDER BY created_at DESC LIMIT 5)
             UNION ALL
             (SELECT 'pembayaran' as tipe, u.full_name as nama, p.created_at, p.status as aksi 
              FROM pembayaran p JOIN users u ON p.nis_murid = u.nis ORDER BY p.created_at DESC LIMIT 5)
             ORDER BY created_at DESC LIMIT 10
-        """)
-        aktivitas = cur.fetchall()
+        """, fetch_all=True) or []
         
-        cur.close()
         conn.close()
         
         return render_template('admin/dashboard.html',
@@ -187,7 +226,16 @@ def kelola_siswa():
     """Kelola data siswa dengan pencarian dan sorting"""
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        def run_query(query, params=None, fetch_all=False):
+            cursor = conn.cursor()
+            cursor.execute(query, params or ())
+            results = cursor.fetchall()
+            if results:
+                cols = [desc[0] for desc in cursor.description]
+                results = [dict(zip(cols, row)) for row in results]
+            cursor.close()
+            return results
         
         # Ambil parameter dari URL
         search_query = request.args.get('search_query', '')
@@ -196,18 +244,16 @@ def kelola_siswa():
         
         # Ambil data siswa
         if search_query:
-            # Cari berdasarkan nama atau NIS
-            cur.execute("""
+            query = """
                 SELECT * FROM users 
                 WHERE role = 'murid' 
                 AND (full_name ILIKE %s OR nis ILIKE %s)
                 ORDER BY full_name
-            """, (f'%{search_query}%', f'%{search_query}%'))
+            """
+            siswa = run_query(query, (f'%{search_query}%', f'%{search_query}%'), fetch_all=True)
         else:
-            cur.execute("SELECT * FROM users WHERE role = 'murid' ORDER BY full_name")
+            siswa = run_query("SELECT * FROM users WHERE role = 'murid' ORDER BY full_name", fetch_all=True)
         
-        siswa = cur.fetchall()
-        cur.close()
         conn.close()
         
         # Sorting dengan algoritma yang dipilih
@@ -218,7 +264,6 @@ def kelola_siswa():
         elif sort_type == 'shell':
             siswa = shell_sort(siswa, sort_by)
         
-        # Tampilkan pesan hasil pencarian
         if search_query:
             flash(f'🔍 Menampilkan {len(siswa)} hasil pencarian untuk "{search_query}"', 'info')
         
@@ -233,6 +278,7 @@ def kelola_siswa():
         logger.error(f"Kelola siswa error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
         return redirect(url_for('admin.dashboard'))
+
 
 # ============================================
 # TAMBAH SISWA
@@ -274,18 +320,18 @@ def tambah_siswa():
         
         try:
             conn = get_db_connection()
-            cur = conn.cursor()
+            cursor = conn.cursor()
             
-            cur.execute("SELECT id FROM users WHERE username = %s OR nis = %s", (username, nis))
-            if cur.fetchone():
+            cursor.execute("SELECT id FROM users WHERE username = %s OR nis = %s", (username, nis))
+            if cursor.fetchone():
                 flash('Username atau NIS sudah digunakan!', 'danger')
-                cur.close()
+                cursor.close()
                 conn.close()
                 return render_template('admin/tambah_siswa.html')
             
             hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             
-            cur.execute("""
+            cursor.execute("""
                 INSERT INTO users (username, password_hash, role, full_name, nis, nisn, kelas, 
                                    jenis_kelamin, tanggal_lahir, email, phone, address, created_at, updated_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -294,9 +340,9 @@ def tambah_siswa():
                   jenis_kelamin, tanggal_lahir, email, phone, address, datetime.now(), datetime.now()))
             
             conn.commit()
-            new_id = cur.fetchone()[0]
+            new_id = cursor.fetchone()[0]
             
-            cur.close()
+            cursor.close()
             conn.close()
             
             flash(f'✅ Siswa "{full_name}" (NIS: {nis}) berhasil ditambahkan!', 'success')
@@ -310,92 +356,24 @@ def tambah_siswa():
 
 
 # ============================================
-# EDIT SISWA
-# ============================================
-@admin_bp.route('/siswa/edit/<int:id>', methods=['GET', 'POST'])
-def edit_siswa(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        if request.method == 'POST':
-            full_name = request.form.get('full_name')
-            nis = request.form.get('nis')
-            nisn = request.form.get('nisn')
-            kelas = request.form.get('kelas')
-            jenis_kelamin = request.form.get('jenis_kelamin')
-            tanggal_lahir = request.form.get('tanggal_lahir')
-            email = request.form.get('email')
-            phone = request.form.get('phone')
-            address = request.form.get('address')
-            password = request.form.get('password')
-            
-            if password:
-                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                cur.execute("""
-                    UPDATE users SET full_name=%s, nis=%s, nisn=%s, kelas=%s, jenis_kelamin=%s, 
-                                   tanggal_lahir=%s, email=%s, phone=%s, address=%s, 
-                                   password_hash=%s, updated_at=%s WHERE id=%s
-                """, (full_name, nis, nisn, kelas, jenis_kelamin, tanggal_lahir, 
-                      email, phone, address, hashed, datetime.now(), id))
-            else:
-                cur.execute("""
-                    UPDATE users SET full_name=%s, nis=%s, nisn=%s, kelas=%s, jenis_kelamin=%s,
-                                   tanggal_lahir=%s, email=%s, phone=%s, address=%s, updated_at=%s
-                    WHERE id=%s
-                """, (full_name, nis, nisn, kelas, jenis_kelamin, tanggal_lahir,
-                      email, phone, address, datetime.now(), id))
-            
-            conn.commit()
-            flash('✅ Data siswa berhasil diupdate!', 'success')
-            cur.close()
-            conn.close()
-            return redirect(url_for('admin.kelola_siswa'))
-        
-        cur.execute("SELECT * FROM users WHERE id = %s AND role = 'murid'", (id,))
-        siswa = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if not siswa:
-            flash('Siswa tidak ditemukan!', 'danger')
-            return redirect(url_for('admin.kelola_siswa'))
-        
-        return render_template('admin/edit_siswa.html', siswa=siswa)
-        
-    except Exception as e:
-        logger.error(f"Edit siswa error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('admin.kelola_siswa'))
-
-
-@admin_bp.route('/siswa/hapus/<int:id>')
-def hapus_siswa(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM users WHERE id = %s AND role = 'murid'", (id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Siswa berhasil dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus siswa error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('admin.kelola_siswa'))
-
-
-# ============================================
 # KELOLA GURU
 # ============================================
 @admin_bp.route('/guru')
 def kelola_guru():
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM users WHERE role = 'guru' ORDER BY id")
-        guru = cur.fetchall()
-        cur.close()
+        
+        def run_query(query, params=None, fetch_all=False):
+            cursor = conn.cursor()
+            cursor.execute(query, params or ())
+            results = cursor.fetchall()
+            if results:
+                cols = [desc[0] for desc in cursor.description]
+                results = [dict(zip(cols, row)) for row in results]
+            cursor.close()
+            return results
+        
+        guru = run_query("SELECT * FROM users WHERE role = 'guru' ORDER BY id", fetch_all=True)
         conn.close()
         
         search_query = request.args.get('search_query', '')
@@ -433,132 +411,6 @@ def kelola_guru():
         return redirect(url_for('admin.dashboard'))
 
 
-@admin_bp.route('/guru/tambah', methods=['GET', 'POST'])
-def tambah_guru():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        full_name = request.form.get('full_name')
-        nip = request.form.get('nip')
-        mata_pelajaran = request.form.get('mata_pelajaran')
-        jenis_kelamin = request.form.get('jenis_kelamin')
-        tanggal_lahir = request.form.get('tanggal_lahir')
-        email = request.form.get('email', '')
-        phone = request.form.get('phone', '')
-        
-        if not username or not full_name or not nip or not password:
-            flash('Semua field wajib harus diisi!', 'danger')
-            return render_template('admin/tambah_guru.html')
-        
-        if len(password) < 4:
-            flash('Password minimal 4 karakter!', 'danger')
-            return render_template('admin/tambah_guru.html')
-        
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            
-            cur.execute("SELECT id FROM users WHERE username = %s OR nip = %s", (username, nip))
-            if cur.fetchone():
-                flash('Username atau NIP sudah digunakan!', 'danger')
-                cur.close()
-                conn.close()
-                return render_template('admin/tambah_guru.html')
-            
-            hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            cur.execute("""
-                INSERT INTO users (username, password_hash, role, full_name, nip, mata_pelajaran,
-                                   jenis_kelamin, tanggal_lahir, email, phone, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (username, hashed, 'guru', full_name, nip, mata_pelajaran,
-                  jenis_kelamin, tanggal_lahir, email, phone, datetime.now(), datetime.now()))
-            conn.commit()
-            
-            cur.close()
-            conn.close()
-            
-            flash(f'✅ Guru "{full_name}" (NIP: {nip}) berhasil ditambahkan!', 'success')
-            return redirect(url_for('admin.kelola_guru'))
-            
-        except Exception as e:
-            logger.error(f"Tambah guru error: {str(e)}")
-            flash('Terjadi kesalahan', 'danger')
-    
-    return render_template('admin/tambah_guru.html')
-
-
-@admin_bp.route('/guru/edit/<int:id>', methods=['GET', 'POST'])
-def edit_guru(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        if request.method == 'POST':
-            full_name = request.form.get('full_name')
-            nip = request.form.get('nip')
-            mata_pelajaran = request.form.get('mata_pelajaran')
-            jenis_kelamin = request.form.get('jenis_kelamin')
-            tanggal_lahir = request.form.get('tanggal_lahir')
-            email = request.form.get('email')
-            phone = request.form.get('phone')
-            password = request.form.get('password')
-            
-            if password:
-                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                cur.execute("""
-                    UPDATE users SET full_name=%s, nip=%s, mata_pelajaran=%s, jenis_kelamin=%s,
-                                   tanggal_lahir=%s, email=%s, phone=%s, password_hash=%s, updated_at=%s
-                    WHERE id=%s
-                """, (full_name, nip, mata_pelajaran, jenis_kelamin, tanggal_lahir,
-                      email, phone, hashed, datetime.now(), id))
-            else:
-                cur.execute("""
-                    UPDATE users SET full_name=%s, nip=%s, mata_pelajaran=%s, jenis_kelamin=%s,
-                                   tanggal_lahir=%s, email=%s, phone=%s, updated_at=%s
-                    WHERE id=%s
-                """, (full_name, nip, mata_pelajaran, jenis_kelamin, tanggal_lahir,
-                      email, phone, datetime.now(), id))
-            
-            conn.commit()
-            flash('✅ Data guru berhasil diupdate!', 'success')
-            cur.close()
-            conn.close()
-            return redirect(url_for('admin.kelola_guru'))
-        
-        cur.execute("SELECT * FROM users WHERE id = %s AND role = 'guru'", (id,))
-        guru = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if not guru:
-            flash('Guru tidak ditemukan!', 'danger')
-            return redirect(url_for('admin.kelola_guru'))
-        
-        return render_template('admin/edit_guru.html', guru=guru)
-        
-    except Exception as e:
-        logger.error(f"Edit guru error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('admin.kelola_guru'))
-
-
-@admin_bp.route('/guru/hapus/<int:id>')
-def hapus_guru(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM users WHERE id = %s AND role = 'guru'", (id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Guru berhasil dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus guru error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('admin.kelola_guru'))
-
-
 # ============================================
 # KELOLA PEMBAYARAN
 # ============================================
@@ -566,24 +418,30 @@ def hapus_guru(id):
 def kelola_pembayaran():
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("""
+        def run_query(query, params=None, fetch_all=False):
+            cursor = conn.cursor()
+            cursor.execute(query, params or ())
+            results = cursor.fetchall()
+            if results:
+                cols = [desc[0] for desc in cursor.description]
+                results = [dict(zip(cols, row)) for row in results]
+            cursor.close()
+            return results
+        
+        pembayaran = run_query("""
             SELECT p.*, u.full_name as murid_name, u.nis, u.kelas
             FROM pembayaran p
             JOIN users u ON p.nis_murid = u.nis
             ORDER BY p.tahun DESC, p.bulan DESC
-        """)
-        pembayaran = cur.fetchall()
+        """, fetch_all=True) or []
         
-        cur.execute("SELECT nis, full_name, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
-        siswa = cur.fetchall()
+        siswa = run_query("SELECT nis, full_name, kelas FROM users WHERE role = 'murid' ORDER BY full_name", fetch_all=True) or []
+        
+        conn.close()
         
         total_tagihan = sum(p['nominal'] for p in pembayaran)
         total_terbayar = sum(p['nominal'] for p in pembayaran if p['status'] == 'lunas')
-        
-        cur.close()
-        conn.close()
         
         return render_template('admin/kelola_pembayaran.html',
                              active_menu='pembayaran',
@@ -609,13 +467,13 @@ def tambah_pembayaran():
         status = request.form.get('status')
         
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
+        cursor = conn.cursor()
+        cursor.execute("""
             INSERT INTO pembayaran (nis_murid, bulan, tahun, nominal, status, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (nis_murid, bulan, tahun, nominal, status, datetime.now(), datetime.now()))
         conn.commit()
-        cur.close()
+        cursor.close()
         conn.close()
         
         flash('✅ Pembayaran berhasil ditambahkan!', 'success')
@@ -630,11 +488,11 @@ def edit_pembayaran(id):
     try:
         status = request.form.get('status')
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE pembayaran SET status = %s, updated_at = %s WHERE id = %s", 
+        cursor = conn.cursor()
+        cursor.execute("UPDATE pembayaran SET status = %s, updated_at = %s WHERE id = %s", 
                    (status, datetime.now(), id))
         conn.commit()
-        cur.close()
+        cursor.close()
         conn.close()
         flash('✅ Status pembayaran diupdate!', 'success')
     except Exception as e:
@@ -647,10 +505,10 @@ def edit_pembayaran(id):
 def hapus_pembayaran(id):
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM pembayaran WHERE id = %s", (id,))
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM pembayaran WHERE id = %s", (id,))
         conn.commit()
-        cur.close()
+        cursor.close()
         conn.close()
         flash('✅ Pembayaran dihapus!', 'success')
     except Exception as e:
@@ -666,20 +524,26 @@ def hapus_pembayaran(id):
 def e_rapor():
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("""
+        def run_query(query, params=None, fetch_all=False):
+            cursor = conn.cursor()
+            cursor.execute(query, params or ())
+            results = cursor.fetchall()
+            if results:
+                cols = [desc[0] for desc in cursor.description]
+                results = [dict(zip(cols, row)) for row in results]
+            cursor.close()
+            return results
+        
+        rapor = run_query("""
             SELECT e.*, u.full_name as siswa_name, u.nis, u.kelas
             FROM e_rapor e
             JOIN users u ON e.siswa_id = u.id
             ORDER BY e.created_at DESC
-        """)
-        rapor = cur.fetchall()
+        """, fetch_all=True) or []
         
-        cur.execute("SELECT id, full_name, nis, kelas FROM users WHERE role = 'murid' ORDER BY full_name")
-        siswa = cur.fetchall()
+        siswa = run_query("SELECT id, full_name, nis, kelas FROM users WHERE role = 'murid' ORDER BY full_name", fetch_all=True) or []
         
-        cur.close()
         conn.close()
         
         return render_template('admin/e_rapor.html',
@@ -689,124 +553,6 @@ def e_rapor():
                              siswa=siswa)
     except Exception as e:
         logger.error(f"E-Rapor error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('admin.dashboard'))
-
-
-@admin_bp.route('/e-rapor/tambah', methods=['POST'])
-def tambah_e_rapor():
-    try:
-        siswa_id = request.form.get('siswa_id')
-        mapel = request.form.get('mapel')
-        nilai = request.form.get('nilai')
-        predikat = request.form.get('predikat')
-        catatan = request.form.get('catatan', '')
-        semester = request.form.get('semester')
-        tahun_ajaran = request.form.get('tahun_ajaran')
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO e_rapor (siswa_id, mapel, nilai, predikat, catatan, semester, tahun_ajaran, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (siswa_id, mapel, nilai, predikat, catatan, semester, tahun_ajaran, datetime.now(), datetime.now()))
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        flash('✅ Nilai rapor berhasil ditambahkan!', 'success')
-    except Exception as e:
-        logger.error(f"Tambah e-rapor error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('admin.e_rapor'))
-
-
-@admin_bp.route('/e-rapor/hapus/<int:id>')
-def hapus_e_rapor(id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM e_rapor WHERE id = %s", (id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Nilai rapor dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus e-rapor error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('admin.e_rapor'))
-
-
-# ============================================
-# PENGUMUMAN
-# ============================================
-@admin_bp.route('/pengumuman')
-def kelola_pengumuman():
-    try:
-        from models.pengumuman_model import Pengumuman
-        pengumuman_model = Pengumuman()
-        pengumuman = pengumuman_model.get_all_with_admin()
-        return render_template('admin/pengumuman.html',
-                             active_menu='pengaturan',
-                             name=current_user.full_name,
-                             pengumuman=pengumuman)
-    except Exception as e:
-        logger.error(f"Kelola pengumuman error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-        return redirect(url_for('admin.dashboard'))
-
-
-@admin_bp.route('/pengumuman/tambah', methods=['POST'])
-def tambah_pengumuman():
-    try:
-        from models.pengumuman_model import Pengumuman
-        judul = request.form.get('judul')
-        isi = request.form.get('isi')
-        target_role = request.form.get('target_role', 'semua')
-        
-        data = {
-            'admin_id': current_user.id,
-            'judul': judul,
-            'isi': isi,
-            'target_role': target_role
-        }
-        pengumuman = Pengumuman()
-        pengumuman.insert(data)
-        flash('✅ Pengumuman berhasil ditambahkan!', 'success')
-    except Exception as e:
-        logger.error(f"Tambah pengumuman error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('admin.kelola_pengumuman'))
-
-
-@admin_bp.route('/pengumuman/hapus/<int:id>')
-def hapus_pengumuman(id):
-    try:
-        from models.pengumuman_model import Pengumuman
-        pengumuman = Pengumuman()
-        pengumuman.delete(id)
-        flash('✅ Pengumuman dihapus!', 'success')
-    except Exception as e:
-        logger.error(f"Hapus pengumuman error: {str(e)}")
-        flash('Terjadi kesalahan', 'danger')
-    return redirect(url_for('admin.kelola_pengumuman'))
-
-
-# ============================================
-# PENUGASAN
-# ============================================
-@admin_bp.route('/penugasan')
-def kelola_penugasan():
-    try:
-        from models.penugasan_model import Penugasan
-        penugasan_model = Penugasan()
-        penugasan = penugasan_model.get_all_with_guru()
-        return render_template('admin/penugasan.html',
-                             active_menu='pengaturan',
-                             name=current_user.full_name,
-                             penugasan=penugasan)
-    except Exception as e:
-        logger.error(f"Kelola penugasan error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
         return redirect(url_for('admin.dashboard'))
 
@@ -824,27 +570,23 @@ def profil():
         
         try:
             conn = get_db_connection()
-            cur = conn.cursor()
+            cursor = conn.cursor()
             
             if password:
                 hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                cur.execute("""
+                cursor.execute("""
                     UPDATE users SET full_name=%s, email=%s, phone=%s, password_hash=%s, updated_at=%s
                     WHERE id=%s
                 """, (full_name, email, phone, hashed, datetime.now(), current_user.id))
             else:
-                cur.execute("""
+                cursor.execute("""
                     UPDATE users SET full_name=%s, email=%s, phone=%s, updated_at=%s
                     WHERE id=%s
                 """, (full_name, email, phone, datetime.now(), current_user.id))
             
             conn.commit()
-            cur.close()
+            cursor.close()
             conn.close()
-            
-            current_user.full_name = full_name
-            current_user.email = email
-            current_user.phone = phone
             
             flash('✅ Profil berhasil diupdate!', 'success')
             return redirect(url_for('admin.profil'))
@@ -854,10 +596,15 @@ def profil():
             flash('Terjadi kesalahan', 'danger')
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT full_name, email, phone FROM users WHERE id = %s", (current_user.id,))
-    user_data = cur.fetchone()
-    cur.close()
+    cursor = conn.cursor()
+    cursor.execute("SELECT full_name, email, phone FROM users WHERE id = %s", (current_user.id,))
+    result = cursor.fetchone()
+    if result:
+        cols = [desc[0] for desc in cursor.description]
+        user_data = dict(zip(cols, result))
+    else:
+        user_data = None
+    cursor.close()
     conn.close()
     
     return render_template('admin/profil.html',
@@ -874,18 +621,24 @@ def profil():
 def pengaturan():
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("SELECT COUNT(*) as total FROM users")
-        total_users = cur.fetchone()['total']
+        def run_query(query, fetch_one=False):
+            cursor = conn.cursor()
+            cursor.execute(query)
+            if fetch_one:
+                result = cursor.fetchone()
+                if result:
+                    cols = [desc[0] for desc in cursor.description]
+                    result = dict(zip(cols, result))
+            else:
+                result = None
+            cursor.close()
+            return result
         
-        cur.execute("SELECT COUNT(*) as total FROM pengumuman")
-        total_pengumuman = cur.fetchone()['total']
+        total_users = run_query("SELECT COUNT(*) as total FROM users", fetch_one=True)['total']
+        total_pengumuman = run_query("SELECT COUNT(*) as total FROM pengumuman", fetch_one=True)['total']
+        total_penugasan = run_query("SELECT COUNT(*) as total FROM penugasan", fetch_one=True)['total']
         
-        cur.execute("SELECT COUNT(*) as total FROM penugasan")
-        total_penugasan = cur.fetchone()['total']
-        
-        cur.close()
         conn.close()
         
         return render_template('admin/pengaturan.html', 
