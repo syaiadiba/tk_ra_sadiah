@@ -1,38 +1,35 @@
-# Core Flask Framework
+# Core
 Flask==2.3.3
-Flask-Login==0.6.3
 Werkzeug==2.3.3
 Jinja2==3.1.4
+MarkupSafe==2.1.5
 click==8.1.7
-itsdangerous==2.2.0
-markupsafe==2.1.5
+itsdangerous==2.1.2
 blinker==1.8.2
 
 # Database
 psycopg2-binary==2.9.9
-sqlalchemy==2.0.31
-alembic==1.13.2
+SQLAlchemy==2.0.31
 Flask-SQLAlchemy==3.1.1
+alembic==1.13.2
 
-# Authentication & Security
+# Auth
+Flask-Login==0.6.3
 bcrypt==4.2.0
-python-dotenv==1.0.1
-PyJWT==2.8.0
+PyJWT==2.9.0
 
 # Supabase
 supabase==2.5.1
-gotrue==2.5.0
-realtime==2.0.0
-storage3==0.7.0
 
 # Production Server
-gunicorn==21.2.0
+gunicorn==22.0.0
 
 # Utilities
-python-dateutil==2.9.0
-pytz==2024.1
-six==1.16.0
-certifi==2024.7.4
-urllib3==2.2.2
-idna==3.7
+python-dotenv==1.0.1
 requests==2.32.3
+python-dateutil==2.9.0.post0
+pytz==2024.2
+certifi==2024.8.30
+urllib3==2.2.3
+idna==3.10
+six==1.16.0
