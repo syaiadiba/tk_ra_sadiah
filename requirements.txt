@@ -1,5 +1,4 @@
-# requirements.txt untuk production (Render.com)
-psycopg2==2.9.9
+pg8000==1.31.2
 Flask==2.3.3
 Werkzeug==3.0.6
 Jinja2==3.1.4
