@@ -10,6 +10,7 @@ import os
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -19,17 +20,30 @@ logger = logging.getLogger(__name__)
 
 def get_db_connection():
     """Mendapatkan koneksi database dari DATABASE_URL (Supabase) menggunakan pg8000"""
-    import os
-    import pg8000
-    from dotenv import load_dotenv
-    
-    load_dotenv()
     database_url = os.getenv('DATABASE_URL')
     
     if not database_url:
         raise Exception("DATABASE_URL tidak ditemukan di environment!")
     
-    return pg8000.connect(database_url)
+    # Parse URL menjadi komponen terpisah
+    parsed = urlparse(database_url)
+    
+    user = parsed.username
+    password = parsed.password
+    host = parsed.hostname
+    port = parsed.port or 5432
+    database = parsed.path.lstrip('/')
+    
+    print(f"🔍 Connecting to: {host}:{port} as {user}")
+    
+    # Koneksi dengan parameter terpisah
+    return pg8000.connect(
+        user=user,
+        password=password,
+        host=host,
+        port=port,
+        database=database
+    )
 
 
 def execute_query(conn, query, params=None, fetch_one=False, fetch_all=False):
@@ -96,7 +110,7 @@ def dashboard():
             ORDER BY e.created_at DESC LIMIT 5
         """, fetch_all=True) or []
         
-        pengumuman_terbaru = execute_query(conn, "SELECT * FROM pengumuman ORDER BY created_at DESC LIMIT 3", fetch_all=True) or []
+        pengumuman_terbaru = execute_query(conn, "SELECT * FROM pengumuman WHERE target_role IN ('semua', 'guru') ORDER BY created_at DESC LIMIT 3", fetch_all=True) or []
         
         conn.close()
         
@@ -115,6 +129,7 @@ def dashboard():
                              active_menu='dashboard')
     except Exception as e:
         logger.error(f"Dashboard error: {str(e)}")
+        flash('Terjadi kesalahan pada dashboard', 'danger')
         return render_template('guru/dashboard.html', name=current_user.full_name or 'Guru', active_menu='dashboard')
 
 
@@ -200,6 +215,158 @@ def kirim_tugas(id):
 
 
 # ============================================
+# DAFTAR MURID
+# ============================================
+@guru_bp.route('/daftar-murid')
+def daftar_murid():
+    """Menampilkan daftar murid untuk guru"""
+    try:
+        conn = get_db_connection()
+        
+        # Ambil semua murid
+        murid_list = execute_query(conn, """
+            SELECT id, full_name, nis, nisn, kelas, jenis_kelamin, 
+                   email, phone, address, tanggal_lahir
+            FROM users 
+            WHERE role = 'murid' 
+            ORDER BY kelas, full_name
+        """, fetch_all=True) or []
+        
+        conn.close()
+        
+        return render_template('guru/daftar_murid.html',
+                             murid=murid_list,
+                             total_murid=len(murid_list),
+                             active_menu='daftar_murid')
+    except Exception as e:
+        logger.error(f"Daftar murid error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('guru.dashboard'))
+
+
+# ============================================
+# DETAIL MURID
+# ============================================
+@guru_bp.route('/murid/<int:id>')
+def detail_murid(id):
+    """Menampilkan detail murid"""
+    try:
+        conn = get_db_connection()
+        
+        murid = execute_query(conn, """
+            SELECT id, full_name, nis, nisn, kelas, jenis_kelamin, 
+                   email, phone, address, tanggal_lahir, created_at
+            FROM users 
+            WHERE id = %s AND role = 'murid'
+        """, (id,), fetch_one=True)
+        
+        if not murid:
+            flash('Murid tidak ditemukan!', 'danger')
+            conn.close()
+            return redirect(url_for('guru.daftar_murid'))
+        
+        # Ambil nilai/rapor murid
+        nilai = execute_query(conn, """
+            SELECT * FROM e_rapor 
+            WHERE siswa_id = %s 
+            ORDER BY created_at DESC
+        """, (id,), fetch_all=True) or []
+        
+        # Ambil tugas yang dikumpulkan
+        tugas = execute_query(conn, """
+            SELECT k.*, t.judul as tugas_judul, t.mapel
+            FROM kiriman_tugas k
+            JOIN tugas t ON k.tugas_id = t.id
+            WHERE k.siswa_id = %s
+            ORDER BY k.created_at DESC
+        """, (id,), fetch_all=True) or []
+        
+        conn.close()
+        
+        return render_template('guru/detail_murid.html',
+                             murid=murid,
+                             nilai=nilai,
+                             tugas=tugas,
+                             active_menu='daftar_murid')
+    except Exception as e:
+        logger.error(f"Detail murid error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('guru.daftar_murid'))
+
+
+# ============================================
+# PENGUMUMAN
+# ============================================
+@guru_bp.route('/pengumuman')
+def pengumuman():
+    """Halaman pengumuman untuk guru"""
+    try:
+        conn = get_db_connection()
+        pengumuman_list = execute_query(conn, "SELECT * FROM pengumuman WHERE target_role IN ('semua', 'guru') ORDER BY created_at DESC", fetch_all=True) or []
+        conn.close()
+        return render_template('guru/pengumuman.html', 
+                             pengumuman=pengumuman_list,
+                             active_menu='pengumuman')
+    except Exception as e:
+        logger.error(f"Pengumuman error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('guru.dashboard'))
+
+
+# ============================================
+# NILAI / RAPOR
+# ============================================
+@guru_bp.route('/nilai')
+def nilai():
+    """Halaman nilai/rapor untuk guru"""
+    try:
+        conn = get_db_connection()
+        nilai_list = execute_query(conn, """
+            SELECT e.*, u.full_name as siswa_name, u.nis, u.kelas 
+            FROM e_rapor e 
+            JOIN users u ON e.siswa_id = u.id 
+            ORDER BY e.created_at DESC
+        """, fetch_all=True) or []
+        conn.close()
+        return render_template('guru/nilai.html', 
+                             nilai=nilai_list,
+                             active_menu='nilai')
+    except Exception as e:
+        logger.error(f"Nilai error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('guru.dashboard'))
+
+
+# ============================================
+# JADWAL MENGAJAR
+# ============================================
+@guru_bp.route('/jadwal-mengajar')
+def jadwal_mengajar():
+    """Halaman jadwal mengajar untuk guru"""
+    try:
+        mata_pelajaran = getattr(current_user, 'mata_pelajaran', 'Matematika')
+        
+        # Data jadwal contoh (hardcoded untuk sementara)
+        jadwal_list = [
+            {'hari': 'Senin', 'jam': '07:30 - 09:00', 'kelas': 'Kelas A', 'ruang': 'Ruang 101'},
+            {'hari': 'Senin', 'jam': '09:15 - 10:45', 'kelas': 'Kelas B', 'ruang': 'Ruang 102'},
+            {'hari': 'Selasa', 'jam': '07:30 - 09:00', 'kelas': 'Kelas C', 'ruang': 'Ruang 103'},
+            {'hari': 'Rabu', 'jam': '10:00 - 11:30', 'kelas': 'Kelas A', 'ruang': 'Ruang 101'},
+            {'hari': 'Kamis', 'jam': '07:30 - 09:00', 'kelas': 'Kelas B', 'ruang': 'Ruang 102'},
+            {'hari': 'Jumat', 'jam': '08:00 - 09:30', 'kelas': 'Kelas C', 'ruang': 'Ruang 103'},
+        ]
+        
+        return render_template('guru/jadwal_mengajar.html',
+                             jadwal=jadwal_list,
+                             mata_pelajaran=mata_pelajaran,
+                             active_menu='jadwal')
+    except Exception as e:
+        logger.error(f"Jadwal mengajar error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('guru.dashboard'))
+
+
+# ============================================
 # PROFIL GURU
 # ============================================
 @guru_bp.route('/profil', methods=['GET', 'POST'])
@@ -258,6 +425,15 @@ def profil():
 @guru_bp.route('/pengaturan')
 def pengaturan():
     return render_template('guru/pengaturan.html', active_menu='pengaturan')
+
+
+# ============================================
+# INDEX / ROOT REDIRECT
+# ============================================
+@guru_bp.route('/')
+def index():
+    """Redirect ke dashboard guru"""
+    return redirect(url_for('guru.dashboard'))
 
 
 __all__ = ['guru_bp']

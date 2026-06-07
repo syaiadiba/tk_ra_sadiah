@@ -177,7 +177,6 @@ def dashboard():
     try:
         conn = get_db_connection()
         
-        # Helper function untuk query
         def run_query(query, params=None, fetch_one=False, fetch_all=False):
             cursor = conn.cursor()
             cursor.execute(query, params or ())
@@ -233,7 +232,7 @@ def dashboard():
 
 
 # ============================================
-# KELOLA SISWA (DITAMBAHKAN)
+# KELOLA SISWA
 # ============================================
 @admin_bp.route('/siswa')
 def kelola_siswa():
@@ -251,12 +250,10 @@ def kelola_siswa():
             cursor.close()
             return results
         
-        # Ambil parameter dari URL
         search_query = request.args.get('search_query', '')
         sort_by = request.args.get('sort_by', 'full_name')
         sort_type = request.args.get('sort_type', 'merge')
         
-        # Ambil data siswa
         if search_query:
             query = """
                 SELECT * FROM users 
@@ -270,7 +267,6 @@ def kelola_siswa():
         
         conn.close()
         
-        # Sorting dengan algoritma yang dipilih
         if sort_type == 'merge':
             siswa = merge_sort(siswa, sort_by)
         elif sort_type == 'insertion':
@@ -370,6 +366,96 @@ def tambah_siswa():
 
 
 # ============================================
+# EDIT SISWA - DITAMBAHKAN!
+# ============================================
+@admin_bp.route('/siswa/edit/<int:id>', methods=['GET', 'POST'])
+def edit_siswa(id):
+    """Edit data siswa"""
+    try:
+        conn = get_db_connection()
+        
+        if request.method == 'POST':
+            full_name = request.form.get('full_name')
+            nis = request.form.get('nis')
+            nisn = request.form.get('nisn')
+            kelas = request.form.get('kelas')
+            jenis_kelamin = request.form.get('jenis_kelamin')
+            tanggal_lahir = request.form.get('tanggal_lahir')
+            email = request.form.get('email')
+            phone = request.form.get('phone')
+            address = request.form.get('address')
+            password = request.form.get('password')
+            
+            cursor = conn.cursor()
+            
+            if password:
+                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                cursor.execute("""
+                    UPDATE users SET full_name=%s, nis=%s, nisn=%s, kelas=%s, jenis_kelamin=%s,
+                                   tanggal_lahir=%s, email=%s, phone=%s, address=%s,
+                                   password_hash=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, nis, nisn, kelas, jenis_kelamin, tanggal_lahir,
+                      email, phone, address, hashed, datetime.now(), id))
+            else:
+                cursor.execute("""
+                    UPDATE users SET full_name=%s, nis=%s, nisn=%s, kelas=%s, jenis_kelamin=%s,
+                                   tanggal_lahir=%s, email=%s, phone=%s, address=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, nis, nisn, kelas, jenis_kelamin, tanggal_lahir,
+                      email, phone, address, datetime.now(), id))
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            flash('✅ Data siswa berhasil diupdate!', 'success')
+            return redirect(url_for('admin.kelola_siswa'))
+        
+        # GET request - tampilkan form edit
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = %s AND role = 'murid'", (id,))
+        result = cursor.fetchone()
+        if result:
+            cols = [desc[0] for desc in cursor.description]
+            siswa = dict(zip(cols, result))
+        else:
+            siswa = None
+        cursor.close()
+        conn.close()
+        
+        if not siswa:
+            flash('Siswa tidak ditemukan!', 'danger')
+            return redirect(url_for('admin.kelola_siswa'))
+        
+        return render_template('admin/edit_siswa.html', siswa=siswa)
+        
+    except Exception as e:
+        logger.error(f"Edit siswa error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('admin.kelola_siswa'))
+
+
+# ============================================
+# HAPUS SISWA - DITAMBAHKAN!
+# ============================================
+@admin_bp.route('/siswa/hapus/<int:id>')
+def hapus_siswa(id):
+    """Hapus siswa"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE id = %s AND role = 'murid'", (id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        flash('✅ Siswa berhasil dihapus!', 'success')
+    except Exception as e:
+        logger.error(f"Hapus siswa error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.kelola_siswa'))
+
+
+# ============================================
 # KELOLA GURU
 # ============================================
 @admin_bp.route('/guru')
@@ -423,6 +509,212 @@ def kelola_guru():
         logger.error(f"Kelola guru error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
         return redirect(url_for('admin.dashboard'))
+
+
+# ============================================
+# TAMBAH GURU
+# ============================================
+@admin_bp.route('/guru/tambah', methods=['GET', 'POST'])
+def tambah_guru():
+    """Tambah guru baru"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        full_name = request.form.get('full_name')
+        nip = request.form.get('nip')
+        mata_pelajaran = request.form.get('mata_pelajaran')
+        jenis_kelamin = request.form.get('jenis_kelamin')
+        tanggal_lahir = request.form.get('tanggal_lahir')
+        email = request.form.get('email', '')
+        phone = request.form.get('phone', '')
+        
+        if not username or not full_name or not nip or not password:
+            flash('Semua field wajib harus diisi!', 'danger')
+            return render_template('admin/tambah_guru.html')
+        
+        if len(password) < 4:
+            flash('Password minimal 4 karakter!', 'danger')
+            return render_template('admin/tambah_guru.html')
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Cek username atau NIP sudah ada
+            cursor.execute("SELECT id FROM users WHERE username = %s OR nip = %s", (username, nip))
+            if cursor.fetchone():
+                flash('Username atau NIP sudah digunakan!', 'danger')
+                cursor.close()
+                conn.close()
+                return render_template('admin/tambah_guru.html')
+            
+            hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            cursor.execute("""
+                INSERT INTO users (username, password_hash, role, full_name, nip, mata_pelajaran,
+                                   jenis_kelamin, tanggal_lahir, email, phone, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (username, hashed, 'guru', full_name, nip, mata_pelajaran,
+                  jenis_kelamin, tanggal_lahir, email, phone, datetime.now(), datetime.now()))
+            conn.commit()
+            new_id = cursor.fetchone()[0]
+            
+            cursor.close()
+            conn.close()
+            
+            flash(f'✅ Guru "{full_name}" (NIP: {nip}) berhasil ditambahkan!', 'success')
+            return redirect(url_for('admin.kelola_guru'))
+            
+        except Exception as e:
+            logger.error(f"Tambah guru error: {str(e)}")
+            flash('Terjadi kesalahan', 'danger')
+    
+    return render_template('admin/tambah_guru.html')
+
+
+# ============================================
+# EDIT GURU
+# ============================================
+@admin_bp.route('/guru/edit/<int:id>', methods=['GET', 'POST'])
+def edit_guru(id):
+    """Edit data guru"""
+    try:
+        conn = get_db_connection()
+        
+        if request.method == 'POST':
+            full_name = request.form.get('full_name')
+            nip = request.form.get('nip')
+            mata_pelajaran = request.form.get('mata_pelajaran')
+            jenis_kelamin = request.form.get('jenis_kelamin')
+            tanggal_lahir = request.form.get('tanggal_lahir')
+            email = request.form.get('email')
+            phone = request.form.get('phone')
+            password = request.form.get('password')
+            
+            cursor = conn.cursor()
+            
+            if password:
+                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                cursor.execute("""
+                    UPDATE users SET full_name=%s, nip=%s, mata_pelajaran=%s, jenis_kelamin=%s,
+                                   tanggal_lahir=%s, email=%s, phone=%s, password_hash=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, nip, mata_pelajaran, jenis_kelamin, tanggal_lahir,
+                      email, phone, hashed, datetime.now(), id))
+            else:
+                cursor.execute("""
+                    UPDATE users SET full_name=%s, nip=%s, mata_pelajaran=%s, jenis_kelamin=%s,
+                                   tanggal_lahir=%s, email=%s, phone=%s, updated_at=%s
+                    WHERE id=%s
+                """, (full_name, nip, mata_pelajaran, jenis_kelamin, tanggal_lahir,
+                      email, phone, datetime.now(), id))
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            flash('✅ Data guru berhasil diupdate!', 'success')
+            return redirect(url_for('admin.kelola_guru'))
+        
+        # GET request
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = %s AND role = 'guru'", (id,))
+        result = cursor.fetchone()
+        if result:
+            cols = [desc[0] for desc in cursor.description]
+            guru = dict(zip(cols, result))
+        else:
+            guru = None
+        cursor.close()
+        conn.close()
+        
+        if not guru:
+            flash('Guru tidak ditemukan!', 'danger')
+            return redirect(url_for('admin.kelola_guru'))
+        
+        return render_template('admin/edit_guru.html', guru=guru)
+        
+    except Exception as e:
+        logger.error(f"Edit guru error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('admin.kelola_guru'))
+
+
+# ============================================
+# HAPUS GURU
+# ============================================
+@admin_bp.route('/guru/hapus/<int:id>')
+def hapus_guru(id):
+    """Hapus guru"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE id = %s AND role = 'guru'", (id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        flash('✅ Guru berhasil dihapus!', 'success')
+    except Exception as e:
+        logger.error(f"Hapus guru error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.kelola_guru'))
+
+
+# ============================================
+# KELOLA PENGUMUMAN (CRUD)
+# ============================================
+@admin_bp.route('/pengumuman')
+def kelola_pengumuman():
+    """Kelola pengumuman"""
+    try:
+        from models.pengumuman_model import Pengumuman
+        pengumuman_model = Pengumuman()
+        pengumuman = pengumuman_model.get_all_with_admin()
+        return render_template('admin/pengumuman.html',
+                             active_menu='pengaturan',
+                             name=current_user.full_name,
+                             pengumuman=pengumuman)
+    except Exception as e:
+        logger.error(f"Kelola pengumuman error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+
+@admin_bp.route('/pengumuman/tambah', methods=['POST'])
+def tambah_pengumuman():
+    """Tambah pengumuman"""
+    try:
+        from models.pengumuman_model import Pengumuman
+        judul = request.form.get('judul')
+        isi = request.form.get('isi')
+        target_role = request.form.get('target_role', 'semua')
+        
+        data = {
+            'admin_id': current_user.id,
+            'judul': judul,
+            'isi': isi,
+            'target_role': target_role
+        }
+        pengumuman = Pengumuman()
+        pengumuman.insert(data)
+        flash('✅ Pengumuman berhasil ditambahkan!', 'success')
+    except Exception as e:
+        logger.error(f"Tambah pengumuman error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.kelola_pengumuman'))
+
+
+@admin_bp.route('/pengumuman/hapus/<int:id>')
+def hapus_pengumuman(id):
+    """Hapus pengumuman"""
+    try:
+        from models.pengumuman_model import Pengumuman
+        pengumuman = Pengumuman()
+        pengumuman.delete(id)
+        flash('✅ Pengumuman dihapus!', 'success')
+    except Exception as e:
+        logger.error(f"Hapus pengumuman error: {str(e)}")
+        flash('Terjadi kesalahan', 'danger')
+    return redirect(url_for('admin.kelola_pengumuman'))
 
 
 # ============================================

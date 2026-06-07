@@ -45,18 +45,30 @@ def login():
             if user and user.role == role:
                 login_user(user)
                 session['role'] = user.role
+                session['user_id'] = user.id
                 flash(f'Selamat datang, {user.full_name or user.username}!', 'success')
                 
+                # Redirect berdasarkan role
                 if user.role == 'admin':
                     return redirect(url_for('admin.dashboard'))
                 elif user.role == 'guru':
+                    # Pastikan redirect ke endpoint yang benar
+                    print(f"Redirecting guru to dashboard. User ID: {user.id}")
                     return redirect(url_for('guru.dashboard'))
-                else:
+                elif user.role == 'murid':
                     return redirect(url_for('murid.dashboard'))
+                else:
+                    flash('Role tidak dikenal!', 'danger')
+                    return redirect(url_for('auth.login'))
             else:
-                flash('Username, password, atau role salah!', 'danger')
+                if user:
+                    flash(f'Role tidak sesuai! Anda adalah {user.role}, bukan {role}', 'danger')
+                else:
+                    flash('Username atau password salah!', 'danger')
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             flash('Terjadi kesalahan sistem', 'danger')
     
     return render_template('login.html')

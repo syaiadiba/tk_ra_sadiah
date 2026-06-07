@@ -1,0 +1,152 @@
+{% extends "guru/base_guru.html" %}
+
+{% block title %}Detail Murid{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">👤 Detail Murid</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('guru.daftar_murid') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Kembali
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Informasi Pribadi</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>NIS</th>
+                            <td>{{ murid.nis or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>NISN</th>
+                            <td>{{ murid.nisn or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Nama Lengkap</th>
+                            <td>{{ murid.full_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Kelas</th>
+                            <td><span class="badge bg-info">{{ murid.kelas or '-' }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>Jenis Kelamin</th>
+                            <td>{{ murid.jenis_kelamin or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tanggal Lahir</th>
+                            <td>{{ murid.tanggal_lahir or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email</th>
+                            <td>{{ murid.email or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Telepon</th>
+                            <td>{{ murid.phone or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Alamat</th>
+                            <td>{{ murid.address or '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📊 Nilai / Rapor</h5>
+                </div>
+                <div class="card-body">
+                    {% if nilai %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Mata Pelajaran</th>
+                                    <th>Nilai</th>
+                                    <th>Predikat</th>
+                                    <th>Tanggal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for n in nilai %}
+                                <tr>
+                                    <td>{{ n.mapel or '-' }}</td>
+                                    <td>{{ n.nilai or '-' }}</td>
+                                    <td>
+                                        {% if n.nilai >= 85 %}
+                                            <span class="badge bg-success">A</span>
+                                        {% elif n.nilai >= 75 %}
+                                            <span class="badge bg-info">B</span>
+                                        {% elif n.nilai >= 60 %}
+                                            <span class="badge bg-warning">C</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">D</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ n.created_at[:10] if n.created_at else '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Belum ada nilai</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">📝 Riwayat Tugas</h5>
+                </div>
+                <div class="card-body">
+                    {% if tugas %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Judul Tugas</th>
+                                    <th>Mata Pelajaran</th>
+                                    <th>Status</th>
+                                    <th>Tanggal Kumpul</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in tugas %}
+                                <tr>
+                                    <td>{{ t.tugas_judul }}</td>
+                                    <td>{{ t.mapel or '-' }}</td>
+                                    <td>
+                                        {% if t.nilai %}
+                                            <span class="badge bg-success">Dinilai ({{ t.nilai }})</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Belum Dinilai</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ t.created_at[:10] if t.created_at else '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Belum ada tugas yang dikumpulkan</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

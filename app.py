@@ -58,6 +58,12 @@ def create_app(config_name='default'):
         from blueprints.admin_bp import admin_bp
         print("✅ admin_bp imported")
         
+        from blueprints.guru_bp import guru_bp
+        print("✅ guru_bp imported")
+        
+        from blueprints.murid_bp import murid_bp
+        print("✅ murid_bp imported")
+        
         from blueprints.umum_bp import umum_bp
         print("✅ umum_bp imported")
         
@@ -66,6 +72,12 @@ def create_app(config_name='default'):
         
         app.register_blueprint(admin_bp)
         print("✅ admin_bp registered")
+        
+        app.register_blueprint(guru_bp)
+        print("✅ guru_bp registered")
+        
+        app.register_blueprint(murid_bp)
+        print("✅ murid_bp registered")
         
         app.register_blueprint(umum_bp)
         print("✅ umum_bp registered")
