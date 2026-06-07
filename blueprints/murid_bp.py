@@ -1,11 +1,10 @@
 """
-Murid Blueprint for TK RA SA'DIAH - SIMPLIFIED VERSION
+Murid Blueprint for TK RA SA'DIAH - WITH PG8000
 """
 
 from flask import Blueprint, render_template, flash, redirect, url_for, request
 from flask_login import login_required, current_user
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import pg8000
 import os
 from dotenv import load_dotenv
 import bcrypt
@@ -16,9 +15,9 @@ murid_bp = Blueprint('murid', __name__, url_prefix='/murid')
 
 
 def get_db_connection():
-    """Mendapatkan koneksi database dari DATABASE_URL (Supabase)"""
+    """Mendapatkan koneksi database dari DATABASE_URL (Supabase) menggunakan pg8000"""
     import os
-    import psycopg2
+    import pg8000
     from dotenv import load_dotenv
     
     load_dotenv()
@@ -27,9 +26,33 @@ def get_db_connection():
     if not database_url:
         raise Exception("DATABASE_URL tidak ditemukan di environment!")
     
-    return psycopg2.connect(database_url)
+    return pg8000.connect(database_url)
 
+
+def execute_query(conn, query, params=None, fetch_one=False, fetch_all=False):
+    """Helper untuk eksekusi query dengan konversi ke dictionary"""
+    cursor = conn.cursor()
+    cursor.execute(query, params or ())
     
+    if fetch_one:
+        result = cursor.fetchone()
+        if result:
+            columns = [desc[0] for desc in cursor.description]
+            result = dict(zip(columns, result))
+        cursor.close()
+        return result
+    elif fetch_all:
+        results = cursor.fetchall()
+        if results:
+            columns = [desc[0] for desc in cursor.description]
+            results = [dict(zip(columns, row)) for row in results]
+        cursor.close()
+        return results
+    else:
+        conn.commit()
+        rowcount = cursor.rowcount
+        cursor.close()
+        return rowcount
 
 
 @murid_bp.before_request
@@ -48,7 +71,7 @@ def check_role():
 def dashboard():
     """Student dashboard"""
     try:
-        # Data dummy untuk testing
+        # Data sementara untuk testing (karena tabel mungkin belum ada)
         statistik = {
             'rata_rata_nilai': 85,
             'tugas_selesai': 3,
@@ -77,9 +100,6 @@ def dashboard():
             {'jam': '08:30 - 09:30', 'mapel': 'Bahasa Indonesia', 'guru': 'Siti Aminah', 'ruangan': 'Ruang 2'},
         ]
         
-        # ============================================
-        # GUNAKAN GETATTR UNTUK MENGHINDARI ATTRIBUTEERROR
-        # ============================================
         return render_template('murid/dashboard.html',
                              name=current_user.full_name or current_user.username,
                              email=getattr(current_user, 'email', 'email@example.com'),
@@ -122,9 +142,7 @@ def dashboard_fallback():
 # ============================================
 @murid_bp.route('/tugas')
 def tugas():
-    """Halaman daftar tugas"""
     try:
-        # Data dummy untuk testing
         tugas_list = [
             {'id': 1, 'judul': 'Matematika - Latihan Soal', 'mapel': 'Matematika', 'deadline': '2024-12-20', 'status': 'belum', 'nilai': None},
             {'id': 2, 'judul': 'Bahasa Indonesia - Membaca', 'mapel': 'Bahasa Indonesia', 'deadline': '2024-12-18', 'status': 'terlambat', 'nilai': None},
@@ -139,7 +157,6 @@ def tugas():
 
 @murid_bp.route('/tugas/kirim/<int:id>', methods=['GET', 'POST'])
 def kirim_tugas(id):
-    """Form kirim tugas"""
     if request.method == 'POST':
         jawaban = request.form.get('jawaban')
         flash(f'Tugas berhasil dikirim!', 'success')
@@ -151,7 +168,6 @@ def kirim_tugas(id):
 
 @murid_bp.route('/riwayat-tugas')
 def riwayat_tugas():
-    """Halaman riwayat tugas"""
     riwayat = [
         {'judul': 'Matematika - Kuis 1', 'tanggal_kirim': '2024-12-01', 'nilai': 90, 'feedback': 'Bagus!'},
         {'judul': 'Bahasa Indonesia - Esai', 'tanggal_kirim': '2024-11-28', 'nilai': 85, 'feedback': 'Perbanyak kosa kata'},
@@ -164,7 +180,6 @@ def riwayat_tugas():
 # ============================================
 @murid_bp.route('/keuangan')
 def keuangan():
-    """Halaman keuangan - READ only"""
     pembayaran = [
         {'bulan': 'Januari', 'tahun': 2024, 'nominal': 500000, 'status': 'lunas'},
         {'bulan': 'Februari', 'tahun': 2024, 'nominal': 500000, 'status': 'lunas'},
@@ -186,7 +201,6 @@ def keuangan():
 # ============================================
 @murid_bp.route('/pengumuman')
 def pengumuman():
-    """Halaman pengumuman - READ only"""
     pengumuman = [
         {'judul': 'Libur Akhir Semester', 'isi': 'Libur akan dimulai tanggal 20 Desember 2024', 'created_at': datetime.now(), 'admin_name': 'Admin'},
         {'judul': 'Pembagian Rapor', 'isi': 'Pembagian rapor akan dilaksanakan tanggal 18 Desember', 'created_at': datetime.now(), 'admin_name': 'Admin'},
@@ -199,17 +213,14 @@ def pengumuman():
 # ============================================
 @murid_bp.route('/pengaturan')
 def pengaturan():
-    """Halaman pengaturan"""
     return render_template('murid/pengaturan.html', active_menu='pengaturan')
 
 
 # ============================================
 # PROFIL (CRUD)
 # ============================================
-
 @murid_bp.route('/profil', methods=['GET', 'POST'])
 def profil():
-    """Halaman profil - CRUD"""
     if request.method == 'POST':
         full_name = request.form.get('full_name')
         email = request.form.get('email')
@@ -221,20 +232,20 @@ def profil():
         try:
             conn = get_db_connection()
             if conn:
-                cur = conn.cursor()
+                cursor = conn.cursor()
                 if password and len(password) >= 4:
                     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                    cur.execute("""
+                    cursor.execute("""
                         UPDATE users SET full_name=%s, email=%s, phone=%s, kelas=%s, address=%s, 
                                        password_hash=%s, updated_at=%s WHERE id=%s
                     """, (full_name, email, phone, kelas, address, hashed, datetime.now(), current_user.id))
                 else:
-                    cur.execute("""
+                    cursor.execute("""
                         UPDATE users SET full_name=%s, email=%s, phone=%s, kelas=%s, address=%s, updated_at=%s
                         WHERE id=%s
                     """, (full_name, email, phone, kelas, address, datetime.now(), current_user.id))
                 conn.commit()
-                cur.close()
+                cursor.close()
                 conn.close()
                 flash('✅ Profil berhasil diupdate!', 'success')
                 return redirect(url_for('murid.profil'))
@@ -242,9 +253,6 @@ def profil():
             print(f"Update profil error: {e}")
             flash('Terjadi kesalahan', 'danger')
     
-    # ============================================
-    # GUNAKAN GETATTR UNTUK MENGHINDARI ATTRIBUTEERROR
-    # ============================================
     return render_template('murid/profil.html',
                          name=current_user.full_name or current_user.username,
                          email=getattr(current_user, 'email', ''),
@@ -253,3 +261,6 @@ def profil():
                          nis=getattr(current_user, 'nis', ''),
                          address=getattr(current_user, 'address', ''),
                          active_menu='profil')
+
+
+__all__ = ['murid_bp']

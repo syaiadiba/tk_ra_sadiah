@@ -1,9 +1,9 @@
 """
-Base Model - Disesuaikan untuk Supabase dengan pg8000
+Base Model - Koneksi ke Supabase dengan pg8000
 """
 
-import pg8000
 import os
+import pg8000
 import logging
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
@@ -15,25 +15,23 @@ logger = logging.getLogger(__name__)
 class BaseModel(ABC):
     
     def __init__(self):
-        self.primary_key = 'id'  # Default, bisa di-override
-        # Gunakan DATABASE_URL dari environment (Supabase)
+        self.primary_key = 'id'
+        # Ambil DATABASE_URL dari environment
         self.database_url = os.getenv('DATABASE_URL', '')
     
     def get_connection(self):
         """
-        Get database connection menggunakan DATABASE_URL (Supabase) dengan pg8000
+        Koneksi ke Supabase menggunakan pg8000
         """
+        if not self.database_url:
+            raise Exception("DATABASE_URL tidak ditemukan! Periksa file .env")
+        
         try:
-            if not self.database_url:
-                raise Exception("DATABASE_URL tidak ditemukan di environment!")
-            
-            # Koneksi langsung menggunakan URL dengan pg8000
+            # Langsung connect dengan URL
             conn = pg8000.connect(self.database_url)
             return conn
         except Exception as e:
-            logger.error(f"Connection error: {str(e)}")
-            print(f"❌ Gagal koneksi ke Supabase: {str(e)}")
-            print("   Periksa DATABASE_URL di file .env")
+            print(f"❌ Error koneksi: {e}")
             raise
     
     @abstractmethod
@@ -50,14 +48,12 @@ class BaseModel(ABC):
             
             if fetch_one:
                 result = cursor.fetchone()
-                # Konversi tuple ke dictionary
                 if result:
                     columns = [desc[0] for desc in cursor.description]
                     result = dict(zip(columns, result))
                 return result
             elif fetch_all:
                 results = cursor.fetchall()
-                # Konversi list of tuples ke list of dictionaries
                 if results:
                     columns = [desc[0] for desc in cursor.description]
                     results = [dict(zip(columns, row)) for row in results]
@@ -76,15 +72,7 @@ class BaseModel(ABC):
             if conn:
                 conn.close()
     
-    # ============================================
-    # METHOD CRUD
-    # ============================================
-    
     def get_all(self, limit=None, offset=None, order_by=None):
-        """
-        Get all records with pagination
-        Time Complexity: O(n)
-        """
         try:
             query = f"SELECT * FROM {self.get_table_name()}"
             if order_by:
@@ -99,10 +87,6 @@ class BaseModel(ABC):
             raise
     
     def get_by_id(self, record_id):
-        """
-        Get record by ID
-        Time Complexity: O(log n)
-        """
         try:
             query = f"SELECT * FROM {self.get_table_name()} WHERE {self.primary_key} = %s"
             return self.execute_query(query, (record_id,), fetch_one=True)
@@ -110,24 +94,7 @@ class BaseModel(ABC):
             logger.error(f"Error in get_by_id: {str(e)}")
             raise
     
-    def count(self):
-        """
-        Get total number of records
-        Time Complexity: O(n)
-        """
-        try:
-            query = f"SELECT COUNT(*) as total FROM {self.get_table_name()}"
-            result = self.execute_query(query, fetch_one=True)
-            return result['total'] if result else 0
-        except Exception as e:
-            logger.error(f"Error in count: {str(e)}")
-            raise
-    
     def insert(self, data):
-        """
-        Insert new record
-        Time Complexity: O(1)
-        """
         try:
             if not data:
                 raise ValueError("Data tidak boleh kosong")
@@ -135,7 +102,6 @@ class BaseModel(ABC):
             columns = ', '.join(data.keys())
             placeholders = ', '.join(['%s'] * len(data))
             query = f"INSERT INTO {self.get_table_name()} ({columns}) VALUES ({placeholders}) RETURNING {self.primary_key}"
-            
             result = self.execute_query(query, tuple(data.values()), fetch_one=True)
             return result[self.primary_key] if result else None
         except Exception as e:
@@ -143,10 +109,6 @@ class BaseModel(ABC):
             raise
     
     def update(self, record_id, data):
-        """
-        Update record by ID
-        Time Complexity: O(1)
-        """
         try:
             if not data:
                 raise ValueError("Data update tidak boleh kosong")
@@ -160,10 +122,6 @@ class BaseModel(ABC):
             raise
     
     def delete(self, record_id):
-        """
-        Delete record by ID
-        Time Complexity: O(1)
-        """
         try:
             query = f"DELETE FROM {self.get_table_name()} WHERE {self.primary_key} = %s"
             return self.execute_query(query, (record_id,))
