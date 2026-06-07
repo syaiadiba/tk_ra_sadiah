@@ -7,6 +7,7 @@ import pg8000
 import logging
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -16,22 +17,40 @@ class BaseModel(ABC):
     
     def __init__(self):
         self.primary_key = 'id'
-        # Ambil DATABASE_URL dari environment
         self.database_url = os.getenv('DATABASE_URL', '')
     
     def get_connection(self):
         """
-        Koneksi ke Supabase menggunakan pg8000
+        Koneksi ke Supabase menggunakan pg8000 dengan parameter terpisah
         """
         if not self.database_url:
             raise Exception("DATABASE_URL tidak ditemukan! Periksa file .env")
         
         try:
-            # Langsung connect dengan URL
-            conn = pg8000.connect(self.database_url)
+            # Parse URL menjadi komponen terpisah
+            parsed = urlparse(self.database_url)
+            
+            user = parsed.username
+            password = parsed.password
+            host = parsed.hostname
+            port = parsed.port or 5432
+            database = parsed.path.lstrip('/')
+            
+            print(f"🔍 Connecting to: {host}:{port} as {user}")
+            
+            # Koneksi dengan parameter terpisah
+            conn = pg8000.connect(
+                user=user,
+                password=password,
+                host=host,
+                port=port,
+                database=database
+            )
+            print("✅ Connected to Supabase!")
             return conn
+            
         except Exception as e:
-            print(f"❌ Error koneksi: {e}")
+            print(f"❌ Connection error: {e}")
             raise
     
     @abstractmethod

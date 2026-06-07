@@ -11,6 +11,7 @@ from datetime import datetime
 import pg8000
 import os
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -27,17 +28,30 @@ def check_role():
 
 def get_db_connection():
     """Mendapatkan koneksi database dari DATABASE_URL (Supabase) menggunakan pg8000"""
-    import os
-    import pg8000
-    from dotenv import load_dotenv
-    
-    load_dotenv()
     database_url = os.getenv('DATABASE_URL')
     
     if not database_url:
         raise Exception("DATABASE_URL tidak ditemukan di environment!")
     
-    return pg8000.connect(database_url)
+    # Parse URL menjadi komponen terpisah
+    parsed = urlparse(database_url)
+    
+    user = parsed.username
+    password = parsed.password
+    host = parsed.hostname
+    port = parsed.port or 5432
+    database = parsed.path.lstrip('/')
+    
+    print(f"🔍 Connecting to: {host}:{port} as {user}")
+    
+    # Koneksi dengan parameter terpisah
+    return pg8000.connect(
+        user=user,
+        password=password,
+        host=host,
+        port=port,
+        database=database
+    )
 
 
 def execute_query(conn, query, params=None, fetch_one=False, fetch_all=False):
