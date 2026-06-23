@@ -18,6 +18,49 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 logger = logging.getLogger(__name__)
 
 
+# ============================================
+# TEMPLATE FILTERS UNTUK ADMIN BP
+# ============================================
+
+@admin_bp.app_template_filter('format_rp')
+def format_rp(value):
+    """Format angka menjadi Rupiah (contoh: 500000 -> 500.000)"""
+    try:
+        if value is None:
+            return '0'
+        return f"{int(value):,}".replace(',', '.')
+    except (ValueError, TypeError):
+        return str(value)
+
+
+@admin_bp.app_template_filter('format_date')
+def format_date(value):
+    """Format tanggal menjadi dd/mm/yyyy"""
+    try:
+        if value is None:
+            return '-'
+        if isinstance(value, str):
+            from datetime import datetime
+            value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return value.strftime('%d/%m/%Y')
+    except:
+        return str(value)
+
+
+@admin_bp.app_template_filter('format_datetime')
+def format_datetime(value):
+    """Format datetime menjadi dd/mm/yyyy HH:MM"""
+    try:
+        if value is None:
+            return '-'
+        if isinstance(value, str):
+            from datetime import datetime
+            value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return value.strftime('%d/%m/%Y %H:%M')
+    except:
+        return str(value)
+
+
 @admin_bp.before_request
 @login_required
 def check_role():

@@ -1,0 +1,99 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Profil Admin - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Profil Admin{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5><i class="fas fa-user-cog"></i> Edit Profil Admin</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <!-- Nama Lengkap -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nama Lengkap</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-primary text-white">
+                                <i class="fas fa-user"></i>
+                            </span>
+                            <input type="text" name="full_name" class="form-control" value="{{ name }}" required>
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-primary text-white">
+                                <i class="fas fa-envelope"></i>
+                            </span>
+                            <input type="email" name="email" class="form-control" value="{{ email|default('') }}">
+                        </div>
+                        <small class="text-muted">Email digunakan untuk komunikasi</small>
+                    </div>
+
+                    <!-- No. Telepon -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">No. Telepon</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-primary text-white">
+                                <i class="fas fa-phone"></i>
+                            </span>
+                            <input type="text" name="phone" class="form-control" value="{{ phone|default('') }}">
+                        </div>
+                        <small class="text-muted">Contoh: 081234567890</small>
+                    </div>
+
+                    <hr>
+
+                    <!-- Password Baru -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password Baru</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-warning text-dark">
+                                <i class="fas fa-key"></i>
+                            </span>
+                            <input type="password" name="password" class="form-control" placeholder="Kosongkan jika tidak ingin mengganti password">
+                        </div>
+                        <small class="text-muted">Minimal 4 karakter. Kosongkan jika tidak ingin mengganti.</small>
+                    </div>
+
+                    <hr>
+
+                    <!-- Tombol -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Simpan Perubahan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Informasi Tambahan -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-info-circle"></i> Informasi Akun
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Role:</strong> <span class="badge bg-primary">Administrator</span></p>
+                        <p><strong>Status:</strong> <span class="badge bg-success">Aktif</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Terdaftar Sejak:</strong> {{ now.year if now else '2024' }}</p>
+                        <p><strong>Hak Akses:</strong> Penuh</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

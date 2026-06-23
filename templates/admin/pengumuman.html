@@ -1,0 +1,120 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Kelola Pengumuman - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Kelola Pengumuman{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Sidebar Kiri - Form Tambah Pengumuman -->
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5><i class="fas fa-plus-circle"></i> Buat Pengumuman Baru</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.tambah_pengumuman') }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Judul Pengumuman</label>
+                        <input type="text" name="judul" class="form-control" placeholder="Masukkan judul" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Isi Pengumuman</label>
+                        <textarea name="isi" class="form-control" rows="4" placeholder="Tulis isi pengumuman di sini..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Target Pengguna</label>
+                        <select name="target_role" class="form-select">
+                            <option value="semua">📢 Semua User</option>
+                            <option value="murid">👨‍🎓 Hanya Murid</option>
+                            <option value="guru">👩‍🏫 Hanya Guru</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-paper-plane"></i> Posting Pengumuman
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Informasi Tambahan -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-info-circle"></i> Informasi
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-0">
+                    <i class="fas fa-check-circle text-success"></i> Pengumuman akan langsung tampil di dashboard user
+                </p>
+                <hr>
+                <p class="small text-muted mb-0">
+                    <i class="fas fa-users text-primary"></i> Total Pengumuman: <strong>{{ pengumuman|length }}</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar Kanan - Daftar Pengumuman -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-table"></i> Daftar Pengumuman
+                </div>
+                <span class="badge bg-light text-dark">Total: {{ pengumuman|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>Judul</th>
+                                <th>Isi</th>
+                                <th>Target</th>
+                                <th>Tanggal</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in pengumuman %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td><strong>{{ p.judul }}</strong></td>
+                                <td>{{ p.isi[:50] }}{% if p.isi|length > 50 %}...{% endif %}</td>
+                                <td>
+                                    {% if p.target_role == 'semua' %}
+                                    <span class="badge bg-primary">Semua</span>
+                                    {% elif p.target_role == 'murid' %}
+                                    <span class="badge bg-info">Murid</span>
+                                    {% elif p.target_role == 'guru' %}
+                                    <span class="badge bg-warning text-dark">Guru</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ p.target_role }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '-' }}</td>
+                                <td>
+                                    <a href="{{ url_for('admin.hapus_pengumuman', id=p.id) }}" 
+                                       class="btn btn-sm btn-danger" 
+                                       onclick="return confirm('Yakin ingin menghapus pengumuman ini?')"
+                                       title="Hapus">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="fas fa-inbox fa-2x d-block mb-2"></i>
+                                    Belum ada pengumuman
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
