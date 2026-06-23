@@ -1,55 +1,313 @@
-<!-- Form Tambah Pembayaran -->
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Kelola Pembayaran - TK RA SA'DIAH{% endblock %}
+{% block page_title %}Kelola Pembayaran{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Background hijau muda gradient */
+    .bg-green-light {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    }
+    
+    .card-green-border {
+        border-left: 5px solid #22c55e;
+    }
+    
+    .hover-scale:hover {
+        transform: scale(1.05);
+        transition: transform 0.2s;
+    }
+    
+    .hover-scale {
+        transition: transform 0.2s;
+    }
+    
+    .input-group .form-control:focus,
+    .input-group .form-select:focus {
+        border-color: #22c55e;
+        box-shadow: 0 0 0 0.25rem rgba(34, 197, 94, 0.25);
+    }
+    
+    .card {
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(34, 197, 94, 0.15) !important;
+    }
+    
+    .badge-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .badge-status.lunas {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-status.belum {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .stat-summary {
+        background: white;
+        border-radius: 12px;
+        padding: 15px 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    
+    .stat-summary .label {
+        font-size: 13px;
+        color: #6b7280;
+    }
+    
+    .stat-summary .value {
+        font-size: 20px;
+        font-weight: 700;
+    }
+    
+    .stat-summary .value.text-success { color: #16a34a; }
+    .stat-summary .value.text-danger { color: #dc2626; }
+    .stat-summary .value.text-primary { color: #2563eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ============================================
+     FORM TAMBAH PEMBAYARAN - BACKGROUND HIJAU MUDA
+     ============================================ -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-info text-white">
-                <h5><i class="fas fa-plus-circle"></i> Tambah Pembayaran</h5>
+        <div class="card shadow-sm border-0 bg-green-light card-green-border">
+            <div class="card-header bg-transparent border-0 d-flex align-items-center" style="background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 12px 12px 0 0;">
+                <div class="rounded-circle bg-white p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-plus-circle text-success" style="font-size: 20px;"></i>
+                </div>
+                <h5 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-wallet me-2"></i> Tambah Pembayaran
+                </h5>
+                <span class="ms-3 badge bg-light text-success">SPP</span>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('admin.tambah_pembayaran') }}" class="row g-3">
+                <form method="POST" action="{{ url_for('admin.tambah_pembayaran') }}" class="row g-3 align-items-end">
+                    <!-- Pilih Siswa -->
                     <div class="col-md-3">
-                        <select name="nis_murid" class="form-control" required>  <!-- ← GANTI MURID_ID JADI NIS_MURID -->
-                            <option value="">Pilih Siswa</option>
-                            {% for s in siswa %}
-                            <option value="{{ s.nis }}">{{ s.full_name }} ({{ s.nis|default('-') }})</option>  <!-- ← VALUE PAKAI NIS -->
-                            {% endfor %}
-                        </select>
+                        <label class="form-label fw-semibold text-success">
+                            <i class="fas fa-user-graduate me-1"></i> Siswa
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white border-0">
+                                <i class="fas fa-users"></i>
+                            </span>
+                            <select name="nis_murid" class="form-select border-success" required>
+                                <option value="">Pilih Siswa</option>
+                                {% for s in siswa %}
+                                <option value="{{ s.nis }}">{{ s.full_name }} ({{ s.nis|default('-') }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
-                    <!-- sisanya tetap sama -->
+
+                    <!-- Bulan -->
                     <div class="col-md-2">
-                        <select name="bulan" class="form-control" required>
-                            <option value="">Bulan</option>
-                            <option value="Januari">Januari</option>
-                            <option value="Februari">Februari</option>
-                            <option value="Maret">Maret</option>
-                            <option value="April">April</option>
-                            <option value="Mei">Mei</option>
-                            <option value="Juni">Juni</option>
-                            <option value="Juli">Juli</option>
-                            <option value="Agustus">Agustus</option>
-                            <option value="September">September</option>
-                            <option value="Oktober">Oktober</option>
-                            <option value="November">November</option>
-                            <option value="Desember">Desember</option>
-                        </select>
+                        <label class="form-label fw-semibold text-success">
+                            <i class="fas fa-calendar-alt me-1"></i> Bulan
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white border-0">
+                                <i class="fas fa-calendar"></i>
+                            </span>
+                            <select name="bulan" class="form-select border-success" required>
+                                <option value="">Pilih Bulan</option>
+                                <option value="Januari">Januari</option>
+                                <option value="Februari">Februari</option>
+                                <option value="Maret">Maret</option>
+                                <option value="April">April</option>
+                                <option value="Mei">Mei</option>
+                                <option value="Juni">Juni</option>
+                                <option value="Juli">Juli</option>
+                                <option value="Agustus">Agustus</option>
+                                <option value="September">September</option>
+                                <option value="Oktober">Oktober</option>
+                                <option value="November">November</option>
+                                <option value="Desember">Desember</option>
+                            </select>
+                        </div>
                     </div>
+
+                    <!-- Tahun -->
                     <div class="col-md-2">
-                        <input type="number" name="tahun" class="form-control" placeholder="Tahun" value="2024" required>
+                        <label class="form-label fw-semibold text-success">
+                            <i class="fas fa-calendar-year me-1"></i> Tahun
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white border-0">
+                                <i class="fas fa-calendar-check"></i>
+                            </span>
+                            <input type="number" name="tahun" class="form-control border-success" placeholder="Tahun" value="{{ now.year if now else 2024 }}" required>
+                        </div>
                     </div>
+
+                    <!-- Nominal -->
                     <div class="col-md-2">
-                        <input type="number" name="nominal" class="form-control" placeholder="Nominal" value="500000" required>
+                        <label class="form-label fw-semibold text-success">
+                            <i class="fas fa-money-bill-wave me-1"></i> Nominal
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white border-0">
+                                <i class="fas fa-rupiah-sign"></i>
+                            </span>
+                            <input type="number" name="nominal" class="form-control border-success" placeholder="Nominal" value="500000" required>
+                        </div>
                     </div>
+
+                    <!-- Status -->
                     <div class="col-md-2">
-                        <select name="status" class="form-control">
-                            <option value="belum_bayar">Belum Bayar</option>
-                            <option value="lunas">Lunas</option>
-                        </select>
+                        <label class="form-label fw-semibold text-success">
+                            <i class="fas fa-check-circle me-1"></i> Status
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white border-0">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                            <select name="status" class="form-select border-success">
+                                <option value="belum_bayar">Belum Bayar</option>
+                                <option value="lunas">Lunas</option>
+                            </select>
+                        </div>
                     </div>
+
+                    <!-- Tombol Submit -->
                     <div class="col-md-1">
-                        <button type="submit" class="btn btn-primary w-100">Tambah</button>
+                        <label class="form-label text-success fw-semibold">&nbsp;</label>
+                        <button type="submit" class="btn btn-success w-100 shadow-sm hover-scale" style="background: linear-gradient(135deg, #22c55e, #16a34a); border: none; padding: 10px; border-radius: 8px;">
+                            <i class="fas fa-plus-circle me-1"></i> Tambah
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<!-- ============================================
+     STATISTIK PEMBAYARAN
+     ============================================ -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="stat-summary text-center">
+            <div class="label">Total Tagihan</div>
+            <div class="value text-primary">Rp {{ total_tagihan|default(0)|format_rp }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-summary text-center">
+            <div class="label">Total Terbayar</div>
+            <div class="value text-success">Rp {{ total_terbayar|default(0)|format_rp }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-summary text-center">
+            <div class="label">Total Belum Bayar</div>
+            <div class="value text-danger">Rp {{ (total_tagihan|default(0) - total_terbayar|default(0))|format_rp }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================
+     TABEL DAFTAR PEMBAYARAN
+     ============================================ -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <div>
+            <i class="fas fa-table me-2 text-success"></i>
+            <span class="fw-bold">Daftar Pembayaran</span>
+        </div>
+        <div>
+            <span class="badge bg-success me-2">Total: {{ pembayaran|length }}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="pembayaranTable">
+                <thead class="table-success">
+                    <tr>
+                        <th>No</th>
+                        <th>Nama Siswa</th>
+                        <th>NIS</th>
+                        <th>Bulan</th>
+                        <th>Tahun</th>
+                        <th>Nominal</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pembayaran %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ p.murid_name }}</td>
+                        <td>{{ p.nis|default('-') }}</td>
+                        <td>{{ p.bulan }}</td>
+                        <td>{{ p.tahun }}</td>
+                        <td class="fw-bold">Rp {{ p.nominal|format_rp }}</td>
+                        <td>
+                            {% if p.status == 'lunas' %}
+                            <span class="badge-status lunas">
+                                <i class="fas fa-check-circle me-1"></i> Lunas
+                            </span>
+                            {% else %}
+                            <span class="badge-status belum">
+                                <i class="fas fa-times-circle me-1"></i> Belum Bayar
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.status == 'belum_bayar' %}
+                            <form method="POST" action="{{ url_for('admin.edit_pembayaran', id=p.id) }}" class="d-inline">
+                                <input type="hidden" name="status" value="lunas">
+                                <button type="submit" class="btn btn-sm btn-success" title="Tandai Lunas">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                            <a href="{{ url_for('admin.hapus_pembayaran', id=p.id) }}" 
+                               class="btn btn-sm btn-danger" 
+                               onclick="return confirm('Yakin ingin menghapus pembayaran ini?')" 
+                               title="Hapus">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x d-block mb-2"></i>
+                            Belum ada data pembayaran
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto dismiss alerts
+    setTimeout(function() {
+        let alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            alert.style.opacity = '0';
+            setTimeout(function() { if(alert) alert.remove(); }, 300);
+        });
+    }, 3000);
+</script>
+{% endblock %}
