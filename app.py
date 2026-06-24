@@ -45,6 +45,84 @@ def create_app(config_name='default'):
             return None
     
     # ============================================
+    # TEMPLATE FILTERS
+    # ============================================
+    
+    @app.template_filter('format_rp')
+    def format_rp(value):
+        """Format angka menjadi Rupiah (contoh: 500000 -> 500.000)"""
+        try:
+            if value is None:
+                return '0'
+            return f"{int(value):,}".replace(',', '.')
+        except (ValueError, TypeError):
+            return str(value)
+    
+    @app.template_filter('format_date')
+    def format_date(value):
+        """Format tanggal menjadi dd/mm/yyyy"""
+        try:
+            if value is None:
+                return '-'
+            if isinstance(value, str):
+                from datetime import datetime
+                value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return value.strftime('%d/%m/%Y')
+        except:
+            return str(value)
+    
+    @app.template_filter('format_datetime')
+    def format_datetime(value):
+        """Format datetime menjadi dd/mm/yyyy HH:MM"""
+        try:
+            if value is None:
+                return '-'
+            if isinstance(value, str):
+                from datetime import datetime
+                value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return value.strftime('%d/%m/%Y %H:%M')
+        except:
+            return str(value)
+    
+    @app.template_filter('format_phone')
+    def format_phone(value):
+        """Format nomor telepon (contoh: 081234567890 -> 0812-3456-7890)"""
+        try:
+            if not value:
+                return '-'
+            phone = str(value).strip()
+            if len(phone) == 12:
+                return f"{phone[:4]}-{phone[4:8]}-{phone[8:]}"
+            elif len(phone) == 11:
+                return f"{phone[:4]}-{phone[4:7]}-{phone[7:]}"
+            return phone
+        except:
+            return str(value)
+    
+    @app.template_filter('truncate')
+    def truncate(value, length=50, suffix='...'):
+        """Potong teks jika lebih dari panjang tertentu"""
+        try:
+            if not value:
+                return ''
+            if len(value) <= length:
+                return value
+            return value[:length] + suffix
+        except:
+            return str(value)
+    
+    @app.template_filter('status_badge')
+    def status_badge(value):
+        """Konversi status menjadi badge HTML"""
+        status_map = {
+            'lunas': '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Lunas</span>',
+            'belum_bayar': '<span class="badge bg-danger"><i class="fas fa-times-circle"></i> Belum Bayar</span>',
+            'aktif': '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Aktif</span>',
+            'tidak_aktif': '<span class="badge bg-secondary"><i class="fas fa-times-circle"></i> Tidak Aktif</span>',
+        }
+        return status_map.get(str(value).lower(), f'<span class="badge bg-secondary">{value}</span>')
+    
+    # ============================================
     # REGISTER BLUEPRINTS
     # ============================================
     print("\n" + "=" * 60)
