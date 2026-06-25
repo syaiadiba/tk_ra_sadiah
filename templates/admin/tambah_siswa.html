@@ -2,28 +2,53 @@
 
 {% block title %}Tambah Siswa - TK RA SA'DIAH{% endblock %}
 
+{% block extra_css %}
+<style>
+    .is-valid { border-color: #198754 !important; }
+    .is-invalid { border-color: #dc3545 !important; }
+    .valid-feedback, .invalid-feedback {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+    .valid-feedback { color: #198754; }
+    .invalid-feedback { color: #dc3545; }
+    .helper-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        display: block;
+        margin-top: 0.25rem;
+    }
+    .helper-text i {
+        margin-right: 4px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white">
                 <h4><i class="fas fa-user-plus"></i> Tambah Siswa Baru</h4>
-                <p class="mb-0">Data akan langsung disimpan ke database PostgreSQL</p>
+                <p class="mb-0">Data akan langsung disimpan ke database</p>
             </div>
             <div class="card-body">
-                <form method="POST">
+                <form method="POST" id="tambahSiswaForm" onsubmit="return validateForm()">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap <span class="text-danger">*</span></label>
-                                <input type="text" name="full_name" class="form-control" required placeholder="Contoh: Aisyah Putri">
+                                <input type="text" name="full_name" id="full_name" class="form-control" required placeholder="Contoh: Aisyah Putri">
+                                <div class="invalid-feedback" id="full_name_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-at"></i> Username <span class="text-danger">*</span></label>
-                                <input type="text" name="username" class="form-control" required placeholder="Contoh: aisyah.putri">
+                                <input type="text" name="username" id="username" class="form-control" required placeholder="Contoh: aisyah.putri">
                                 <small class="text-muted">Username akan digunakan untuk login</small>
+                                <div class="invalid-feedback" id="username_feedback"></div>
                             </div>
                         </div>
                     </div>
@@ -32,19 +57,22 @@
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-id-card"></i> NIS <span class="text-danger">*</span></label>
-                                <input type="text" name="nis" class="form-control" required placeholder="Nomor Induk Siswa">
+                                <input type="text" name="nis" id="nis" class="form-control" required placeholder="Nomor Induk Siswa">
+                                <div class="invalid-feedback" id="nis_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-id-card"></i> NISN</label>
-                                <input type="text" name="nisn" class="form-control" placeholder="Nomor Induk Siswa Nasional">
+                                <input type="text" name="nisn" id="nisn" class="form-control" placeholder="Nomor Induk Siswa Nasional">
+                                <span class="helper-text"><i class="fas fa-info-circle text-info"></i> Harus 10 digit angka (contoh: 0056123456)</span>
+                                <div class="invalid-feedback" id="nisn_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-school"></i> Kelas</label>
-                                <select name="kelas" class="form-select">
+                                <select name="kelas" id="kelas" class="form-select">
                                     <option value="">Pilih Kelas</option>
                                     <option value="TK A">TK A</option>
                                     <option value="TK B">TK B</option>
@@ -77,13 +105,16 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-key"></i> Password <span class="text-danger">*</span></label>
-                                <input type="password" name="password" class="form-control" required placeholder="Minimal 4 karakter">
+                                <input type="password" name="password" id="password" class="form-control" required placeholder="Minimal 4 karakter">
+                                <span class="helper-text"><i class="fas fa-info-circle text-info"></i> Minimal 4 karakter, kombinasi <strong>huruf dan angka</strong></span>
+                                <div class="invalid-feedback" id="password_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-check-circle"></i> Konfirmasi Password</label>
-                                <input type="password" name="confirm_password" class="form-control" placeholder="Ketik ulang password">
+                                <input type="password" name="confirm_password" id="confirm_password" class="form-control" placeholder="Ketik ulang password">
+                                <div class="invalid-feedback" id="confirm_password_feedback"></div>
                             </div>
                         </div>
                     </div>
@@ -92,20 +123,22 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
-                                <input type="email" name="email" class="form-control" placeholder="Contoh: aisyah@email.com">
+                                <input type="email" name="email" id="email" class="form-control" placeholder="Contoh: aisyah@email.com">
+                                <div class="invalid-feedback" id="email_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-phone"></i> Telepon</label>
-                                <input type="text" name="phone" class="form-control" placeholder="Contoh: 08123456789">
+                                <input type="text" name="phone" id="phone" class="form-control" placeholder="Contoh: 08123456789">
+                                <div class="invalid-feedback" id="phone_feedback"></div>
                             </div>
                         </div>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label"><i class="fas fa-map-marker-alt"></i> Alamat</label>
-                        <textarea name="address" class="form-control" rows="2" placeholder="Alamat lengkap siswa"></textarea>
+                        <textarea name="address" id="address" class="form-control" rows="2" placeholder="Alamat lengkap siswa"></textarea>
                     </div>
                     
                     <hr>
@@ -114,7 +147,7 @@
                             <i class="fas fa-arrow-left"></i> Batal
                         </a>
                         <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Simpan ke Database
+                            <i class="fas fa-save"></i> Simpan
                         </button>
                     </div>
                 </form>
@@ -122,4 +155,122 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const validations = {
+        username: {
+            pattern: /^[a-zA-Z0-9_]{3,20}$/,
+            message: 'Username 3-20 karakter (huruf, angka, underscore)'
+        },
+        full_name: {
+            pattern: /^[a-zA-Z\s\.\']{2,50}$/,
+            message: 'Nama 2-50 karakter (huruf, spasi, titik)'
+        },
+        nis: {
+            pattern: /^\d{8,12}$/,
+            message: 'NIS 8-12 digit angka'
+        },
+        nisn: {
+            pattern: /^\d{10}$/,
+            message: 'NISN harus 10 digit angka (contoh: 0056123456)'
+        },
+        phone: {
+            pattern: /^(08|\+62)[0-9]{8,12}$/,
+            message: 'Format: 081234567890 atau +6281234567890'
+        },
+        email: {
+            pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+            message: 'Email tidak valid (contoh: nama@domain.com)'
+        },
+        password: {
+            pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,}$/,
+            message: 'Password minimal 4 karakter, kombinasi huruf dan angka'
+        }
+    };
+    
+    function validateField(input, pattern, message) {
+        const value = input.value.trim();
+        const feedback = document.getElementById(input.id + '_feedback');
+        if (!feedback) return true;
+        
+        if (value === '') {
+            if (input.hasAttribute('required')) {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Field harus diisi';
+                return false;
+            }
+            input.classList.remove('is-valid', 'is-invalid');
+            feedback.textContent = '';
+            return true;
+        }
+        
+        if (pattern && pattern.test(value)) {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+            feedback.textContent = '✓ Valid';
+            feedback.style.color = '#198754';
+            return true;
+        } else {
+            input.classList.remove('is-valid');
+            input.classList.add('is-invalid');
+            feedback.textContent = '✗ ' + message;
+            feedback.style.color = '#dc3545';
+            return false;
+        }
+    }
+    
+    Object.keys(validations).forEach(function(key) {
+        const input = document.getElementById(key);
+        if (input) {
+            input.addEventListener('input', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+            input.addEventListener('blur', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+        }
+    });
+    
+    // Validasi confirm password
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm_password');
+    if (passwordInput && confirmInput) {
+        function validateConfirm() {
+            const feedback = document.getElementById('confirm_password_feedback');
+            if (confirmInput.value === '') {
+                confirmInput.classList.remove('is-valid', 'is-invalid');
+                feedback.textContent = '';
+                return;
+            }
+            if (passwordInput.value === confirmInput.value) {
+                confirmInput.classList.remove('is-invalid');
+                confirmInput.classList.add('is-valid');
+                feedback.textContent = '✓ Password sama';
+                feedback.style.color = '#198754';
+            } else {
+                confirmInput.classList.remove('is-valid');
+                confirmInput.classList.add('is-invalid');
+                feedback.textContent = '✗ Password tidak sama';
+                feedback.style.color = '#dc3545';
+            }
+        }
+        passwordInput.addEventListener('input', validateConfirm);
+        confirmInput.addEventListener('input', validateConfirm);
+    }
+});
+
+function validateForm() {
+    const invalidInputs = document.querySelectorAll('.is-invalid');
+    if (invalidInputs.length > 0) {
+        alert('⚠️ Masih ada data yang tidak valid. Periksa kembali!');
+        invalidInputs[0].focus();
+        return false;
+    }
+    return true;
+}
+</script>
 {% endblock %}

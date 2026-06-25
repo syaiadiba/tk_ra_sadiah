@@ -2,6 +2,20 @@
 
 {% block title %}Login{% endblock %}
 
+{% block extra_css %}
+<style>
+    .is-valid { border-color: #198754 !important; }
+    .is-invalid { border-color: #dc3545 !important; }
+    .valid-feedback, .invalid-feedback {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+    .valid-feedback { color: #198754; }
+    .invalid-feedback { color: #dc3545; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-5">
@@ -12,23 +26,26 @@
                 <p class="mb-0">Sistem Informasi Sekolah</p>
             </div>
             <div class="card-body p-4">
-                <form method="POST">
+                <form method="POST" id="loginForm" onsubmit="return validateForm()">
                     <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-user"></i> Username</label>
-                        <input type="text" name="username" class="form-control" placeholder="Masukkan username" required autofocus>
+                        <label class="form-label"><i class="fas fa-user"></i> Username <span class="text-danger">*</span></label>
+                        <input type="text" name="username" id="username" class="form-control" placeholder="Masukkan username" required autofocus>
+                        <div class="invalid-feedback" id="username_feedback"></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-lock"></i> Password</label>
-                        <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
+                        <label class="form-label"><i class="fas fa-lock"></i> Password <span class="text-danger">*</span></label>
+                        <input type="password" name="password" id="password" class="form-control" placeholder="Masukkan password" required>
+                        <div class="invalid-feedback" id="password_feedback"></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-user-tag"></i> Login Sebagai</label>
-                        <select name="role" class="form-control" required>
+                        <label class="form-label"><i class="fas fa-user-tag"></i> Login Sebagai <span class="text-danger">*</span></label>
+                        <select name="role" id="role" class="form-select" required>
                             <option value="">Pilih Role</option>
                             <option value="admin">👑 Admin</option>
                             <option value="guru">👩‍🏫 Guru</option>
                             <option value="murid">👧 Murid</option>
                         </select>
+                        <div class="invalid-feedback" id="role_feedback"></div>
                     </div>
                     <button type="submit" class="btn btn-primary w-100 py-2">
                         <i class="fas fa-sign-in-alt"></i> Login
@@ -42,7 +59,7 @@
                 </div>
             </div>
             <div class="card-footer text-center text-muted py-3">
-                <small>© 2026 TK RA SA'DIAH</small>
+                <small>TK RA SA'DIAH</small>
             </div>
         </div>
     </div>
@@ -53,9 +70,107 @@
         background: rgba(255,255,255,0.98);
         border: none;
     }
-    .form-control:focus {
+    .form-control:focus, .form-select:focus {
         border-color: #2e7d32;
         box-shadow: 0 0 0 0.2rem rgba(46,125,50,0.25);
     }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const validations = {
+        username: {
+            pattern: /^[a-zA-Z0-9_]{3,20}$/,
+            message: 'Username 3-20 karakter (huruf, angka, underscore)'
+        },
+        password: {
+            pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,}$/,
+            message: 'Minimal 4 karakter, kombinasi huruf dan angka'
+        }
+    };
+    
+    function validateField(input, pattern, message) {
+        const value = input.value.trim();
+        const feedback = document.getElementById(input.id + '_feedback');
+        if (!feedback) return true;
+        
+        if (value === '') {
+            if (input.hasAttribute('required')) {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Field harus diisi';
+                return false;
+            }
+            input.classList.remove('is-valid', 'is-invalid');
+            feedback.textContent = '';
+            return true;
+        }
+        
+        if (pattern && pattern.test(value)) {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+            feedback.textContent = '✓ Valid';
+            feedback.style.color = '#198754';
+            return true;
+        } else {
+            input.classList.remove('is-valid');
+            input.classList.add('is-invalid');
+            feedback.textContent = '✗ ' + message;
+            feedback.style.color = '#dc3545';
+            return false;
+        }
+    }
+    
+    // Validasi Role
+    const roleInput = document.getElementById('role');
+    if (roleInput) {
+        roleInput.addEventListener('change', function() {
+            const feedback = document.getElementById('role_feedback');
+            if (this.value === '') {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                feedback.textContent = 'Pilih role terlebih dahulu';
+                feedback.style.color = '#dc3545';
+            } else {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+                feedback.textContent = '✓ Role dipilih';
+                feedback.style.color = '#198754';
+            }
+        });
+    }
+    
+    Object.keys(validations).forEach(function(key) {
+        const input = document.getElementById(key);
+        if (input) {
+            input.addEventListener('input', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+            input.addEventListener('blur', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+        }
+    });
+});
+
+function validateForm() {
+    const invalidInputs = document.querySelectorAll('.is-invalid');
+    // Cek role juga
+    const roleInput = document.getElementById('role');
+    if (roleInput && roleInput.value === '') {
+        roleInput.classList.add('is-invalid');
+        document.getElementById('role_feedback').textContent = 'Pilih role terlebih dahulu';
+        invalidInputs.push(roleInput);
+    }
+    
+    if (invalidInputs.length > 0) {
+        alert('⚠️ Masih ada data yang tidak valid. Periksa kembali!');
+        invalidInputs[0].focus();
+        return false;
+    }
+    return true;
+}
+</script>
 {% endblock %}

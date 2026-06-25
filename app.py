@@ -210,12 +210,7 @@ if __name__ == '__main__':
     print(f"🗄️  Database: Supabase (PostgreSQL Cloud)")
     print("=" * 60)
     print(f"\n🚀 Server: http://{host}:{port}")
-    print("=" * 60)
-    print("\n📝 AKUN DEFAULT:")
-    print("   👑 Admin  - admin / admin123")
-    print("   👩‍🏫 Guru   - guru / admin123")
-    print("   👧 Murid  - murid1 / admin123")
-    print("=" * 60)
+    
     print("\n🚀 Starting server...\n")
     
     app.run(host=host, port=port, debug=app.config['DEBUG'])

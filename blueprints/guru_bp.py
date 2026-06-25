@@ -12,6 +12,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 
+# ========== IMPORT VALIDATOR ==========
+from utils.regex_validator import validator
+
 load_dotenv()
 
 guru_bp = Blueprint('guru', __name__, url_prefix='/guru')
@@ -251,7 +254,7 @@ def dashboard():
         return render_template('guru/dashboard.html', name=current_user.full_name or 'Guru', active_menu='dashboard')
 
 
-# TUGAS
+# TUGAS - DENGAN VALIDASI REGEX
 @guru_bp.route('/tugas')
 def tugas():
     try:
@@ -275,16 +278,48 @@ def tugas():
 @guru_bp.route('/buat-tugas', methods=['GET', 'POST'])
 def buat_tugas():
     if request.method == 'POST':
-        judul = request.form.get('judul')
-        mapel = request.form.get('mapel')
-        deskripsi = request.form.get('deskripsi')
-        deadline = request.form.get('deadline')
-        kelas = request.form.get('kelas')
+        judul = request.form.get('judul', '').strip()
+        mapel = request.form.get('mapel', '').strip()
+        deskripsi = request.form.get('deskripsi', '').strip()
+        deadline = request.form.get('deadline', '')
+        kelas = request.form.get('kelas', '').strip()
         
-        if not judul or not deskripsi:
-            flash('Judul dan deskripsi harus diisi!', 'danger')
+        # ========== VALIDASI DENGAN REGEX ==========
+        errors = []
+        
+        valid, msg = validator.validate_judul(judul)
+        if not valid:
+            errors.append(f'Judul: {msg}')
+        
+        if mapel:
+            valid, msg = validator.validate_mapel(mapel)
+            if not valid:
+                errors.append(f'Mata pelajaran: {msg}')
+        
+        valid, msg = validator.validate_deskripsi(deskripsi)
+        if not valid:
+            errors.append(f'Deskripsi: {msg}')
+        
+        if kelas:
+            valid, msg = validator.validate_kelas(kelas)
+            if not valid:
+                errors.append(f'Kelas: {msg}')
+        
+        # Deteksi SQL Injection
+        if validator.contains_sql_injection(judul) or validator.contains_sql_injection(deskripsi):
+            errors.append('Terdeteksi input mencurigakan!')
+        
+        # Sanitasi input
+        judul = validator.sanitize_input(judul)
+        deskripsi = validator.sanitize_input(deskripsi)
+        mapel = validator.sanitize_input(mapel)
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
             return render_template('guru/buat_tugas.html', active_menu='tugas')
         
+        # ========== LANJUTKAN PROSES INSERT ==========
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -295,7 +330,7 @@ def buat_tugas():
             conn.commit()
             cursor.close()
             conn.close()
-            flash('Tugas berhasil dibuat!', 'success')
+            flash('✅ Tugas berhasil dibuat!', 'success')
             return redirect(url_for('guru.tugas'))
         except Exception as e:
             logger.error(f"Buat tugas error: {str(e)}")
@@ -316,12 +351,39 @@ def edit_tugas(id):
             return redirect(url_for('guru.tugas'))
         
         if request.method == 'POST':
-            judul = request.form.get('judul')
-            mapel = request.form.get('mapel')
-            deskripsi = request.form.get('deskripsi')
-            deadline = request.form.get('deadline')
-            kelas = request.form.get('kelas')
+            judul = request.form.get('judul', '').strip()
+            mapel = request.form.get('mapel', '').strip()
+            deskripsi = request.form.get('deskripsi', '').strip()
+            deadline = request.form.get('deadline', '')
+            kelas = request.form.get('kelas', '').strip()
             
+            # ========== VALIDASI DENGAN REGEX ==========
+            errors = []
+            
+            valid, msg = validator.validate_judul(judul)
+            if not valid:
+                errors.append(f'Judul: {msg}')
+            
+            if mapel:
+                valid, msg = validator.validate_mapel(mapel)
+                if not valid:
+                    errors.append(f'Mata pelajaran: {msg}')
+            
+            valid, msg = validator.validate_deskripsi(deskripsi)
+            if not valid:
+                errors.append(f'Deskripsi: {msg}')
+            
+            if kelas:
+                valid, msg = validator.validate_kelas(kelas)
+                if not valid:
+                    errors.append(f'Kelas: {msg}')
+            
+            if errors:
+                for error in errors:
+                    flash(error, 'danger')
+                return render_template('guru/edit_tugas.html', tugas=tugas, active_menu='tugas')
+            
+            # ========== LANJUTKAN PROSES UPDATE ==========
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE tugas SET judul=%s, mapel=%s, deskripsi=%s, deadline=%s, kelas=%s, updated_at=%s
@@ -330,7 +392,7 @@ def edit_tugas(id):
             conn.commit()
             cursor.close()
             conn.close()
-            flash('Tugas berhasil diupdate!', 'success')
+            flash('✅ Tugas berhasil diupdate!', 'success')
             return redirect(url_for('guru.tugas'))
         
         conn.close()
@@ -351,7 +413,7 @@ def hapus_tugas(id):
         conn.commit()
         cursor.close()
         conn.close()
-        flash('Tugas berhasil dihapus!', 'success')
+        flash('✅ Tugas berhasil dihapus!', 'success')
     except Exception as e:
         logger.error(f"Hapus tugas error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
@@ -388,14 +450,21 @@ def kirim_tugas(id):
 @guru_bp.route('/tugas/nilai/<int:kiriman_id>', methods=['POST'])
 def nilai_tugas(kiriman_id):
     try:
-        nilai = request.form.get('nilai')
+        nilai = request.form.get('nilai', '').strip()
+        
+        # ========== VALIDASI DENGAN REGEX ==========
+        valid, msg = validator.validate_nilai(nilai)
+        if not valid:
+            flash(msg, 'danger')
+            return redirect(request.referrer or url_for('guru.tugas'))
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE kiriman_tugas SET nilai=%s, dinilai_pada=%s WHERE id=%s", (nilai, datetime.now(), kiriman_id))
         conn.commit()
         cursor.close()
         conn.close()
-        flash('Nilai berhasil diberikan!', 'success')
+        flash('✅ Nilai berhasil diberikan!', 'success')
     except Exception as e:
         logger.error(f"Nilai tugas error: {str(e)}")
         flash('Terjadi kesalahan', 'danger')
@@ -500,7 +569,7 @@ def detail_murid(id):
         return redirect(url_for('guru.daftar_murid'))
 
 
-# PENGUMUMAN
+# PENGUMUMAN - DENGAN VALIDASI REGEX
 @guru_bp.route('/pengumuman')
 def pengumuman():
     try:
@@ -514,20 +583,36 @@ def pengumuman():
         return redirect(url_for('guru.dashboard'))
 
 # ============================================
-# TAMBAH PENGUMUMAN (GET dan POST)
+# TAMBAH PENGUMUMAN (GET dan POST) - DENGAN VALIDASI REGEX
 # ============================================
 @guru_bp.route('/pengumuman/tambah', methods=['GET', 'POST'])
 def tambah_pengumuman():
     """Tambah pengumuman oleh guru"""
     if request.method == 'POST':
         try:
-            judul = request.form.get('judul')
-            isi = request.form.get('isi')
+            judul = request.form.get('judul', '').strip()
+            isi = request.form.get('isi', '').strip()
             target_role = request.form.get('target_role', 'semua')
             
-            if not judul or not isi:
-                flash('Judul dan isi pengumuman harus diisi!', 'danger')
-                return redirect(url_for('guru.pengumuman'))
+            # ========== VALIDASI DENGAN REGEX ==========
+            errors = []
+            
+            valid, msg = validator.validate_judul(judul)
+            if not valid:
+                errors.append(f'Judul: {msg}')
+            
+            valid, msg = validator.validate_deskripsi(isi)
+            if not valid:
+                errors.append(f'Isi: {msg}')
+            
+            if errors:
+                for error in errors:
+                    flash(error, 'danger')
+                return render_template('guru/tambah_pengumuman.html', active_menu='pengumuman')
+            
+            # Sanitasi input
+            judul = validator.sanitize_input(judul)
+            isi = validator.sanitize_input(isi)
             
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -607,19 +692,61 @@ def jadwal_mengajar():
         return redirect(url_for('guru.dashboard'))
 
 
-# PROFIL GURU
+# PROFIL GURU - DENGAN VALIDASI REGEX
 @guru_bp.route('/profil', methods=['GET', 'POST'])
 def profil():
     if request.method == 'POST':
-        full_name = request.form.get('full_name')
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        nip = request.form.get('nip')
-        mata_pelajaran = request.form.get('mata_pelajaran')
-        jenis_kelamin = request.form.get('jenis_kelamin')
-        address = request.form.get('address')
-        password = request.form.get('password')
+        full_name = request.form.get('full_name', '').strip()
+        email = request.form.get('email', '').strip()
+        phone = request.form.get('phone', '').strip()
+        nip = request.form.get('nip', '').strip()
+        mata_pelajaran = request.form.get('mata_pelajaran', '').strip()
+        jenis_kelamin = request.form.get('jenis_kelamin', '')
+        address = request.form.get('address', '').strip()
+        password = request.form.get('password', '')
         
+        # ========== VALIDASI DENGAN REGEX ==========
+        errors = []
+        
+        valid, msg = validator.validate_full_name(full_name)
+        if not valid:
+            errors.append(f'Nama lengkap: {msg}')
+        
+        if email:
+            valid, msg = validator.validate_email(email)
+            if not valid:
+                errors.append(f'Email: {msg}')
+        
+        if phone:
+            valid, msg = validator.validate_phone(phone)
+            if not valid:
+                errors.append(f'Telepon: {msg}')
+        
+        valid, msg = validator.validate_nip(nip)
+        if not valid:
+            errors.append(f'NIP: {msg}')
+        
+        if mata_pelajaran:
+            valid, msg = validator.validate_mapel(mata_pelajaran)
+            if not valid:
+                errors.append(f'Mata pelajaran: {msg}')
+        
+        if address:
+            valid, msg = validator.validate_alamat(address)
+            if not valid:
+                errors.append(f'Alamat: {msg}')
+        
+        if password:
+            valid, msg = validator.validate_password(password)
+            if not valid:
+                errors.append(f'Password: {msg}')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            return render_template('guru/profil.html', active_menu='profil')
+        
+        # ========== LANJUTKAN PROSES UPDATE ==========
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -641,7 +768,7 @@ def profil():
             conn.commit()
             cursor.close()
             conn.close()
-            flash('Profil berhasil diupdate!', 'success')
+            flash('✅ Profil berhasil diupdate!', 'success')
             return redirect(url_for('guru.profil'))
         except Exception as e:
             logger.error(f"Update profil error: {str(e)}")

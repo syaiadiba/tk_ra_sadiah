@@ -2,6 +2,20 @@
 
 {% block title %}Edit Guru - TK RA SA'DIAH{% endblock %}
 
+{% block extra_css %}
+<style>
+    .is-valid { border-color: #198754 !important; }
+    .is-invalid { border-color: #dc3545 !important; }
+    .valid-feedback, .invalid-feedback {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+    .valid-feedback { color: #198754; }
+    .invalid-feedback { color: #dc3545; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
@@ -11,12 +25,13 @@
                 <p class="mb-0">Edit informasi guru</p>
             </div>
             <div class="card-body">
-                <form method="POST">
+                <form method="POST" id="editGuruForm" onsubmit="return validateForm()">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap</label>
-                                <input type="text" name="full_name" class="form-control" value="{{ guru.full_name }}" required>
+                                <label class="form-label"><i class="fas fa-user"></i> Nama Lengkap <span class="text-danger">*</span></label>
+                                <input type="text" name="full_name" id="full_name" class="form-control" value="{{ guru.full_name }}" required>
+                                <div class="invalid-feedback" id="full_name_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -30,14 +45,16 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label"><i class="fas fa-id-card"></i> NIP</label>
-                                <input type="text" name="nip" class="form-control" value="{{ guru.nip|default('') }}">
+                                <label class="form-label"><i class="fas fa-id-card"></i> NIP <span class="text-danger">*</span></label>
+                                <input type="text" name="nip" id="nip" class="form-control" value="{{ guru.nip|default('') }}" required>
+                                <div class="invalid-feedback" id="nip_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-book"></i> Mata Pelajaran</label>
-                                <input type="text" name="mata_pelajaran" class="form-control" value="{{ guru.mata_pelajaran|default('') }}">
+                                <input type="text" name="mata_pelajaran" id="mata_pelajaran" class="form-control" value="{{ guru.mata_pelajaran|default('') }}">
+                                <div class="invalid-feedback" id="mata_pelajaran_feedback"></div>
                             </div>
                         </div>
                     </div>
@@ -65,20 +82,23 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
-                                <input type="email" name="email" class="form-control" value="{{ guru.email|default('') }}">
+                                <input type="email" name="email" id="email" class="form-control" value="{{ guru.email|default('') }}">
+                                <div class="invalid-feedback" id="email_feedback"></div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><i class="fas fa-phone"></i> Telepon</label>
-                                <input type="text" name="phone" class="form-control" value="{{ guru.phone|default('') }}">
+                                <input type="text" name="phone" id="phone" class="form-control" value="{{ guru.phone|default('') }}">
+                                <div class="invalid-feedback" id="phone_feedback"></div>
                             </div>
                         </div>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label"><i class="fas fa-key"></i> Password Baru <span class="text-muted">(Opsional)</span></label>
-                        <input type="password" name="password" class="form-control" placeholder="Kosongkan jika tidak ingin mengganti password">
+                        <input type="password" name="password" id="password" class="form-control" placeholder="Kosongkan jika tidak ingin mengganti password">
+                        <div class="invalid-feedback" id="password_feedback"></div>
                     </div>
                     
                     <hr>
@@ -95,4 +115,91 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const validations = {
+        full_name: {
+            pattern: /^[a-zA-Z\s\.\']{2,50}$/,
+            message: 'Nama 2-50 karakter (huruf, spasi, titik)'
+        },
+        nip: {
+            pattern: /^\d{6,18}$/,
+            message: 'NIP 6-18 digit angka'
+        },
+        mata_pelajaran: {
+            pattern: /^[a-zA-Z\s\-]{2,30}$/,
+            message: 'Mata pelajaran 2-30 karakter (huruf, spasi)'
+        },
+        phone: {
+            pattern: /^(08|\+62)[0-9]{8,12}$/,
+            message: 'Format: 081234567890 atau +6281234567890'
+        },
+        email: {
+            pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+            message: 'Email tidak valid (contoh: nama@domain.com)'
+        },
+        password: {
+            pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,}$/,
+            message: 'Minimal 4 karakter, kombinasi huruf dan angka'
+        }
+    };
+    
+    function validateField(input, pattern, message) {
+        const value = input.value.trim();
+        const feedback = document.getElementById(input.id + '_feedback');
+        if (!feedback) return true;
+        
+        if (value === '') {
+            if (input.hasAttribute('required')) {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Field harus diisi';
+                return false;
+            }
+            input.classList.remove('is-valid', 'is-invalid');
+            feedback.textContent = '';
+            return true;
+        }
+        
+        if (pattern && pattern.test(value)) {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+            feedback.textContent = '✓ Valid';
+            feedback.style.color = '#198754';
+            return true;
+        } else {
+            input.classList.remove('is-valid');
+            input.classList.add('is-invalid');
+            feedback.textContent = '✗ ' + message;
+            feedback.style.color = '#dc3545';
+            return false;
+        }
+    }
+    
+    Object.keys(validations).forEach(function(key) {
+        const input = document.getElementById(key);
+        if (input) {
+            input.addEventListener('input', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+            input.addEventListener('blur', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+        }
+    });
+});
+
+function validateForm() {
+    const invalidInputs = document.querySelectorAll('.is-invalid');
+    if (invalidInputs.length > 0) {
+        alert('⚠️ Masih ada data yang tidak valid. Periksa kembali!');
+        invalidInputs[0].focus();
+        return false;
+    }
+    return true;
+}
+</script>
 {% endblock %}

@@ -13,6 +13,9 @@ import os
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 
+# ========== IMPORT VALIDATOR ==========
+from utils.regex_validator import validator
+
 load_dotenv()
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 logger = logging.getLogger(__name__)
@@ -334,43 +337,97 @@ def kelola_siswa():
 
 
 # ============================================
-# TAMBAH SISWA
+# TAMBAH SISWA - DENGAN VALIDASI REGEX
 # ============================================
 @admin_bp.route('/siswa/tambah', methods=['GET', 'POST'])
 def tambah_siswa():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        full_name = request.form.get('full_name')
-        nis = request.form.get('nis')
-        nisn = request.form.get('nisn')
-        kelas = request.form.get('kelas')
-        jenis_kelamin = request.form.get('jenis_kelamin')
-        tanggal_lahir = request.form.get('tanggal_lahir')
-        email = request.form.get('email', '')
-        phone = request.form.get('phone', '')
-        address = request.form.get('address', '')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        full_name = request.form.get('full_name', '').strip()
+        nis = request.form.get('nis', '').strip()
+        nisn = request.form.get('nisn', '').strip()
+        kelas = request.form.get('kelas', '').strip()
+        jenis_kelamin = request.form.get('jenis_kelamin', '')
+        tanggal_lahir = request.form.get('tanggal_lahir', '')
+        email = request.form.get('email', '').strip()
+        phone = request.form.get('phone', '').strip()
+        address = request.form.get('address', '').strip()
         
+        # ========== VALIDASI DENGAN REGEX ==========
         errors = []
-        if not username:
-            errors.append('Username harus diisi')
-        if not full_name:
-            errors.append('Nama lengkap harus diisi')
-        if not nis:
-            errors.append('NIS harus diisi')
-        if not password:
-            errors.append('Password harus diisi')
-        elif len(password) < 4:
-            errors.append('Password minimal 4 karakter')
+        
+        # Validasi Username
+        valid, msg = validator.validate_username(username)
+        if not valid:
+            errors.append(f'Username: {msg}')
+        
+        # Validasi Password
+        valid, msg = validator.validate_password(password)
+        if not valid:
+            errors.append(f'Password: {msg}')
         elif password != confirm_password:
             errors.append('Password dan konfirmasi tidak sama')
+        
+        # Validasi Nama Lengkap
+        valid, msg = validator.validate_full_name(full_name)
+        if not valid:
+            errors.append(f'Nama lengkap: {msg}')
+        
+        # Validasi NIS
+        valid, msg = validator.validate_nis(nis)
+        if not valid:
+            errors.append(f'NIS: {msg}')
+        
+        # Validasi NISN (opsional)
+        if nisn:
+            valid, msg = validator.validate_nisn(nisn)
+            if not valid:
+                errors.append(f'NISN: {msg}')
+        
+        # Validasi Email (opsional)
+        if email:
+            valid, msg = validator.validate_email(email)
+            if not valid:
+                errors.append(f'Email: {msg}')
+        
+        # Validasi Phone (opsional)
+        if phone:
+            valid, msg = validator.validate_phone(phone)
+            if not valid:
+                errors.append(f'Telepon: {msg}')
+        
+        # Validasi Alamat (opsional)
+        if address:
+            valid, msg = validator.validate_alamat(address)
+            if not valid:
+                errors.append(f'Alamat: {msg}')
+        
+        # Validasi Kelas (opsional)
+        if kelas:
+            valid, msg = validator.validate_kelas(kelas)
+            if not valid:
+                errors.append(f'Kelas: {msg}')
+        
+        # Deteksi SQL Injection
+        if validator.contains_sql_injection(username) or validator.contains_sql_injection(full_name):
+            errors.append('Terdeteksi input mencurigakan!')
+        
+        # Sanitasi input
+        full_name = validator.sanitize_input(full_name)
+        address = validator.sanitize_input(address)
+        email = validator.sanitize_input(email)
+        
+        # Handle NISN kosong -> None
+        nisn = nisn if nisn else None
         
         if errors:
             for error in errors:
                 flash(error, 'danger')
             return render_template('admin/tambah_siswa.html')
         
+        # ========== LANJUTKAN PROSES INSERT ==========
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -409,7 +466,7 @@ def tambah_siswa():
 
 
 # ============================================
-# EDIT SISWA - DITAMBAHKAN!
+# EDIT SISWA
 # ============================================
 @admin_bp.route('/siswa/edit/<int:id>', methods=['GET', 'POST'])
 def edit_siswa(id):
@@ -418,17 +475,59 @@ def edit_siswa(id):
         conn = get_db_connection()
         
         if request.method == 'POST':
-            full_name = request.form.get('full_name')
-            nis = request.form.get('nis')
-            nisn = request.form.get('nisn')
-            kelas = request.form.get('kelas')
-            jenis_kelamin = request.form.get('jenis_kelamin')
-            tanggal_lahir = request.form.get('tanggal_lahir')
-            email = request.form.get('email')
-            phone = request.form.get('phone')
-            address = request.form.get('address')
-            password = request.form.get('password')
+            full_name = request.form.get('full_name', '').strip()
+            nis = request.form.get('nis', '').strip()
+            nisn = request.form.get('nisn', '').strip()
+            kelas = request.form.get('kelas', '').strip()
+            jenis_kelamin = request.form.get('jenis_kelamin', '')
+            tanggal_lahir = request.form.get('tanggal_lahir', '')
+            email = request.form.get('email', '').strip()
+            phone = request.form.get('phone', '').strip()
+            address = request.form.get('address', '').strip()
+            password = request.form.get('password', '')
             
+            # ========== VALIDASI DENGAN REGEX ==========
+            errors = []
+            
+            valid, msg = validator.validate_full_name(full_name)
+            if not valid:
+                errors.append(f'Nama lengkap: {msg}')
+            
+            valid, msg = validator.validate_nis(nis)
+            if not valid:
+                errors.append(f'NIS: {msg}')
+            
+            if nisn:
+                valid, msg = validator.validate_nisn(nisn)
+                if not valid:
+                    errors.append(f'NISN: {msg}')
+            
+            if email:
+                valid, msg = validator.validate_email(email)
+                if not valid:
+                    errors.append(f'Email: {msg}')
+            
+            if phone:
+                valid, msg = validator.validate_phone(phone)
+                if not valid:
+                    errors.append(f'Telepon: {msg}')
+            
+            if address:
+                valid, msg = validator.validate_alamat(address)
+                if not valid:
+                    errors.append(f'Alamat: {msg}')
+            
+            if password:
+                valid, msg = validator.validate_password(password)
+                if not valid:
+                    errors.append(f'Password: {msg}')
+            
+            if errors:
+                for error in errors:
+                    flash(error, 'danger')
+                return render_template('admin/edit_siswa.html', siswa=request.form)
+            
+            # ========== LANJUTKAN PROSES UPDATE ==========
             cursor = conn.cursor()
             
             if password:
@@ -479,7 +578,7 @@ def edit_siswa(id):
 
 
 # ============================================
-# HAPUS SISWA - DITAMBAHKAN!
+# HAPUS SISWA
 # ============================================
 @admin_bp.route('/siswa/hapus/<int:id>')
 def hapus_siswa(id):
@@ -555,35 +654,82 @@ def kelola_guru():
 
 
 # ============================================
-# TAMBAH GURU
+# TAMBAH GURU - DENGAN VALIDASI REGEX
 # ============================================
 @admin_bp.route('/guru/tambah', methods=['GET', 'POST'])
 def tambah_guru():
     """Tambah guru baru"""
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        full_name = request.form.get('full_name')
-        nip = request.form.get('nip')
-        mata_pelajaran = request.form.get('mata_pelajaran')
-        jenis_kelamin = request.form.get('jenis_kelamin')
-        tanggal_lahir = request.form.get('tanggal_lahir')
-        email = request.form.get('email', '')
-        phone = request.form.get('phone', '')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        full_name = request.form.get('full_name', '').strip()
+        nip = request.form.get('nip', '').strip()
+        mata_pelajaran = request.form.get('mata_pelajaran', '').strip()
+        jenis_kelamin = request.form.get('jenis_kelamin', '')
+        tanggal_lahir = request.form.get('tanggal_lahir', '')
+        email = request.form.get('email', '').strip()
+        phone = request.form.get('phone', '').strip()
         
-        if not username or not full_name or not nip or not password:
-            flash('Semua field wajib harus diisi!', 'danger')
+        # ========== VALIDASI DENGAN REGEX ==========
+        errors = []
+        
+        # Validasi Username
+        valid, msg = validator.validate_username(username)
+        if not valid:
+            errors.append(f'Username: {msg}')
+        
+        # Validasi Password
+        valid, msg = validator.validate_password(password)
+        if not valid:
+            errors.append(f'Password: {msg}')
+        
+        # Validasi Nama Lengkap
+        valid, msg = validator.validate_full_name(full_name)
+        if not valid:
+            errors.append(f'Nama lengkap: {msg}')
+        
+        # Validasi NIP
+        valid, msg = validator.validate_nip(nip)
+        if not valid:
+            errors.append(f'NIP: {msg}')
+        
+        # Validasi Email (opsional)
+        if email:
+            valid, msg = validator.validate_email(email)
+            if not valid:
+                errors.append(f'Email: {msg}')
+        
+        # Validasi Phone (opsional)
+        if phone:
+            valid, msg = validator.validate_phone(phone)
+            if not valid:
+                errors.append(f'Telepon: {msg}')
+        
+        # Validasi Mata Pelajaran (opsional)
+        if mata_pelajaran:
+            valid, msg = validator.validate_mapel(mata_pelajaran)
+            if not valid:
+                errors.append(f'Mata pelajaran: {msg}')
+        
+        # Deteksi SQL Injection
+        if validator.contains_sql_injection(username) or validator.contains_sql_injection(full_name):
+            errors.append('Terdeteksi input mencurigakan!')
+        
+        # Sanitasi input
+        full_name = validator.sanitize_input(full_name)
+        mata_pelajaran = validator.sanitize_input(mata_pelajaran)
+        email = validator.sanitize_input(email)
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
             return render_template('admin/tambah_guru.html')
         
-        if len(password) < 4:
-            flash('Password minimal 4 karakter!', 'danger')
-            return render_template('admin/tambah_guru.html')
-        
+        # ========== LANJUTKAN PROSES INSERT ==========
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Cek username atau NIP sudah ada
             cursor.execute("SELECT id FROM users WHERE username = %s OR nip = %s", (username, nip))
             if cursor.fetchone():
                 flash('Username atau NIP sudah digunakan!', 'danger')
@@ -625,15 +771,52 @@ def edit_guru(id):
         conn = get_db_connection()
         
         if request.method == 'POST':
-            full_name = request.form.get('full_name')
-            nip = request.form.get('nip')
-            mata_pelajaran = request.form.get('mata_pelajaran')
-            jenis_kelamin = request.form.get('jenis_kelamin')
-            tanggal_lahir = request.form.get('tanggal_lahir')
-            email = request.form.get('email')
-            phone = request.form.get('phone')
-            password = request.form.get('password')
+            full_name = request.form.get('full_name', '').strip()
+            nip = request.form.get('nip', '').strip()
+            mata_pelajaran = request.form.get('mata_pelajaran', '').strip()
+            jenis_kelamin = request.form.get('jenis_kelamin', '')
+            tanggal_lahir = request.form.get('tanggal_lahir', '')
+            email = request.form.get('email', '').strip()
+            phone = request.form.get('phone', '').strip()
+            password = request.form.get('password', '')
             
+            # ========== VALIDASI DENGAN REGEX ==========
+            errors = []
+            
+            valid, msg = validator.validate_full_name(full_name)
+            if not valid:
+                errors.append(f'Nama lengkap: {msg}')
+            
+            valid, msg = validator.validate_nip(nip)
+            if not valid:
+                errors.append(f'NIP: {msg}')
+            
+            if email:
+                valid, msg = validator.validate_email(email)
+                if not valid:
+                    errors.append(f'Email: {msg}')
+            
+            if phone:
+                valid, msg = validator.validate_phone(phone)
+                if not valid:
+                    errors.append(f'Telepon: {msg}')
+            
+            if mata_pelajaran:
+                valid, msg = validator.validate_mapel(mata_pelajaran)
+                if not valid:
+                    errors.append(f'Mata pelajaran: {msg}')
+            
+            if password:
+                valid, msg = validator.validate_password(password)
+                if not valid:
+                    errors.append(f'Password: {msg}')
+            
+            if errors:
+                for error in errors:
+                    flash(error, 'danger')
+                return render_template('admin/edit_guru.html', guru=request.form)
+            
+            # ========== LANJUTKAN PROSES UPDATE ==========
             cursor = conn.cursor()
             
             if password:
@@ -727,9 +910,29 @@ def tambah_pengumuman():
     """Tambah pengumuman"""
     try:
         from models.pengumuman_model import Pengumuman
-        judul = request.form.get('judul')
-        isi = request.form.get('isi')
+        judul = request.form.get('judul', '').strip()
+        isi = request.form.get('isi', '').strip()
         target_role = request.form.get('target_role', 'semua')
+        
+        # ========== VALIDASI DENGAN REGEX ==========
+        errors = []
+        
+        valid, msg = validator.validate_judul(judul)
+        if not valid:
+            errors.append(f'Judul: {msg}')
+        
+        valid, msg = validator.validate_deskripsi(isi)
+        if not valid:
+            errors.append(f'Isi: {msg}')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            return redirect(url_for('admin.kelola_pengumuman'))
+        
+        # Sanitasi input
+        judul = validator.sanitize_input(judul)
+        isi = validator.sanitize_input(isi)
         
         data = {
             'admin_id': current_user.id,
@@ -809,11 +1012,35 @@ def kelola_pembayaran():
 @admin_bp.route('/pembayaran/tambah', methods=['POST'])
 def tambah_pembayaran():
     try:
-        nis_murid = request.form.get('nis_murid')
-        bulan = request.form.get('bulan')
-        tahun = request.form.get('tahun')
-        nominal = request.form.get('nominal')
-        status = request.form.get('status')
+        nis_murid = request.form.get('nis_murid', '').strip()
+        bulan = request.form.get('bulan', '').strip()
+        tahun = request.form.get('tahun', '').strip()
+        nominal = request.form.get('nominal', '').strip()
+        status = request.form.get('status', 'belum_bayar')
+        
+        # ========== VALIDASI DENGAN REGEX ==========
+        errors = []
+        
+        if not nis_murid:
+            errors.append('Pilih siswa terlebih dahulu')
+        
+        if not bulan:
+            errors.append('Pilih bulan')
+        
+        valid, msg = validator.validate_tahun(tahun)
+        if not valid:
+            errors.append(f'Tahun: {msg}')
+        
+        valid, msg = validator.validate_nilai(nominal)
+        if not valid:
+            errors.append(f'Nominal: {msg}')
+        elif int(nominal) <= 0:
+            errors.append('Nominal harus lebih dari 0')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            return redirect(url_for('admin.kelola_pembayaran'))
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -912,11 +1139,39 @@ def e_rapor():
 @admin_bp.route('/profil', methods=['GET', 'POST'])
 def profil():
     if request.method == 'POST':
-        full_name = request.form.get('full_name')
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        password = request.form.get('password')
+        full_name = request.form.get('full_name', '').strip()
+        email = request.form.get('email', '').strip()
+        phone = request.form.get('phone', '').strip()
+        password = request.form.get('password', '')
         
+        # ========== VALIDASI DENGAN REGEX ==========
+        errors = []
+        
+        valid, msg = validator.validate_full_name(full_name)
+        if not valid:
+            errors.append(f'Nama lengkap: {msg}')
+        
+        if email:
+            valid, msg = validator.validate_email(email)
+            if not valid:
+                errors.append(f'Email: {msg}')
+        
+        if phone:
+            valid, msg = validator.validate_phone(phone)
+            if not valid:
+                errors.append(f'Telepon: {msg}')
+        
+        if password:
+            valid, msg = validator.validate_password(password)
+            if not valid:
+                errors.append(f'Password: {msg}')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            return redirect(url_for('admin.profil'))
+        
+        # ========== LANJUTKAN PROSES UPDATE ==========
         try:
             conn = get_db_connection()
             cursor = conn.cursor()

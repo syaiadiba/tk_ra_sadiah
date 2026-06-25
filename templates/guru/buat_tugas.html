@@ -3,22 +3,144 @@
 {% block title %}Buat Tugas - TK RA SA'DIAH{% endblock %}
 {% block page_title %}Buat Tugas Baru{% endblock %}
 
+{% block extra_css %}
+<style>
+    .is-valid { border-color: #198754 !important; }
+    .is-invalid { border-color: #dc3545 !important; }
+    .valid-feedback, .invalid-feedback {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+    .valid-feedback { color: #198754; }
+    .invalid-feedback { color: #dc3545; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white"><h5><i class="fas fa-plus-circle"></i> Buat Tugas Baru</h5></div>
             <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3"><label>Judul Tugas</label><input type="text" name="judul" class="form-control" required></div>
-                    <div class="mb-3"><label>Mata Pelajaran</label><input type="text" name="mapel" class="form-control" required></div>
-                    <div class="mb-3"><label>Deskripsi Tugas</label><textarea name="deskripsi" class="form-control" rows="5" required></textarea></div>
-                    <div class="row"><div class="col-md-6"><div class="mb-3"><label>Deadline</label><input type="date" name="deadline" class="form-control"></div></div>
-                    <div class="col-md-6"><div class="mb-3"><label>Kelas Target</label><select name="kelas" class="form-select"><option value="TK A">TK A</option><option value="TK B">TK B</option><option value="TK C">TK C</option><option value="semua">Semua Kelas</option></select></div></div></div>
-                    <hr><div class="d-flex justify-content-between"><a href="{{ url_for('guru.tugas') }}" class="btn btn-secondary">Batal</a><button type="submit" class="btn btn-success">Posting Tugas</button></div>
+                <form method="POST" id="buatTugasForm" onsubmit="return validateForm()">
+                    <div class="mb-3">
+                        <label>Judul Tugas <span class="text-danger">*</span></label>
+                        <input type="text" name="judul" id="judul" class="form-control" required>
+                        <div class="invalid-feedback" id="judul_feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label>Mata Pelajaran <span class="text-danger">*</span></label>
+                        <input type="text" name="mapel" id="mapel" class="form-control" required>
+                        <div class="invalid-feedback" id="mapel_feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label>Deskripsi Tugas <span class="text-danger">*</span></label>
+                        <textarea name="deskripsi" id="deskripsi" class="form-control" rows="5" required></textarea>
+                        <div class="invalid-feedback" id="deskripsi_feedback"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label>Deadline</label>
+                                <input type="date" name="deadline" class="form-control">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label>Kelas Target</label>
+                                <select name="kelas" id="kelas" class="form-select">
+                                    <option value="TK A">TK A</option>
+                                    <option value="TK B">TK B</option>
+                                    <option value="TK C">TK C</option>
+                                    <option value="semua">Semua Kelas</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('guru.tugas') }}" class="btn btn-secondary">Batal</a>
+                        <button type="submit" class="btn btn-success">Posting Tugas</button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const validations = {
+        judul: {
+            pattern: /^[a-zA-Z0-9\s\-_.,!?]{3,100}$/,
+            message: 'Judul 3-100 karakter'
+        },
+        mapel: {
+            pattern: /^[a-zA-Z\s\-]{2,30}$/,
+            message: 'Mata pelajaran 2-30 karakter (huruf, spasi)'
+        },
+        deskripsi: {
+            pattern: /^[a-zA-Z0-9\s\-_.,!?\n]{5,500}$/,
+            message: 'Deskripsi minimal 5 karakter, maksimal 500'
+        }
+    };
+    
+    function validateField(input, pattern, message) {
+        const value = input.value.trim();
+        const feedback = document.getElementById(input.id + '_feedback');
+        if (!feedback) return true;
+        
+        if (value === '') {
+            if (input.hasAttribute('required')) {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Field harus diisi';
+                return false;
+            }
+            input.classList.remove('is-valid', 'is-invalid');
+            feedback.textContent = '';
+            return true;
+        }
+        
+        if (pattern && pattern.test(value)) {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+            feedback.textContent = '✓ Valid';
+            feedback.style.color = '#198754';
+            return true;
+        } else {
+            input.classList.remove('is-valid');
+            input.classList.add('is-invalid');
+            feedback.textContent = '✗ ' + message;
+            feedback.style.color = '#dc3545';
+            return false;
+        }
+    }
+    
+    Object.keys(validations).forEach(function(key) {
+        const input = document.getElementById(key);
+        if (input) {
+            input.addEventListener('input', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+            input.addEventListener('blur', function() {
+                validateField(input, validations[key].pattern, validations[key].message);
+            });
+        }
+    });
+});
+
+function validateForm() {
+    const invalidInputs = document.querySelectorAll('.is-invalid');
+    if (invalidInputs.length > 0) {
+        alert('⚠️ Masih ada data yang tidak valid. Periksa kembali!');
+        invalidInputs[0].focus();
+        return false;
+    }
+    return true;
+}
+</script>
 {% endblock %}

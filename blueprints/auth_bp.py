@@ -9,6 +9,9 @@ import bcrypt
 import logging
 from datetime import datetime
 
+# ========== IMPORT VALIDATOR ==========
+from utils.regex_validator import validator
+
 # ============================================
 # MEMBUAT BLUEPRINT - INI YANG PALING PENTING!
 # ============================================
@@ -31,13 +34,36 @@ def login():
             return redirect(url_for('murid.dashboard'))
     
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        role = request.form.get('role')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        role = request.form.get('role', '')
+        
+        # ========== VALIDASI DENGAN REGEX ==========
+        errors = []
+        
+        # Validasi Username
+        valid, msg = validator.validate_username(username)
+        if not valid:
+            errors.append(f'Username: {msg}')
+        
+        # Validasi Password
+        valid, msg = validator.validate_password(password)
+        if not valid:
+            errors.append(f'Password: {msg}')
+        
+        # Deteksi SQL Injection
+        if validator.contains_sql_injection(username):
+            errors.append('Terdeteksi input mencurigakan!')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            return render_template('login.html')
         
         # Debug
         print(f"Login attempt: {username}, {role}")
         
+        # ========== LANJUTKAN PROSES LOGIN ==========
         try:
             # Authentikasi user
             user = User.authenticate(username, password)
@@ -78,7 +104,14 @@ def login():
 def lupa_password():
     """Halaman lupa password"""
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = request.form.get('username', '').strip()
+        
+        # ========== VALIDASI DENGAN REGEX ==========
+        valid, msg = validator.validate_username(username)
+        if not valid:
+            flash(msg, 'danger')
+            return render_template('lupa_password.html')
+        
         flash(f'Link reset password akan dikirim ke email {username} (Demo)', 'info')
         return redirect(url_for('auth.login'))
     
